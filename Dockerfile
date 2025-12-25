@@ -4,6 +4,10 @@ ARG NJS_VERSION=0.9.4
 ARG LUAJIT_VERSION=2.1-20250826
 ARG LUAJIT_TAR=LuaJIT-${LUAJIT_VERSION}.tar.gz
 ARG LUAJIT_URL=https://github.com/openresty/luajit2/archive/refs/tags/v${LUAJIT_VERSION}.tar.gz
+ARG LUAJIT_INC=/usr/local/include/luajit-2.1
+ARG LUAJIT_LIB=/usr/local/lib
+ARG ZSTD_INC=/usr/local/zstd-pic/include
+ARG ZSTD_LIB=/usr/local/zstd-pic/lib
 
 # 构建阶段：编译nginx（基于Debian Bookworm，阿里云源+优化依赖+修复路径）
 FROM debian:bookworm-slim AS nginx-build
@@ -13,13 +17,13 @@ ARG NJS_VERSION
 ARG LUAJIT_VERSION
 ARG LUAJIT_TAR
 ARG LUAJIT_URL
+ARG LUAJIT_INC
+ARG LUAJIT_LIB
+ARG ZSTD_INC
+ARG ZSTD_LIB
 
 # 设置环境变量（传递构建参数+编译优化）
-ENV NGINX_VERSION=${NGINX_VERSION} \
-    NJS_VERSION=${NJS_VERSION} \
-    LUAJIT_INC=/usr/local/include/luajit-2.1 \
-    LUAJIT_LIB=/usr/local/lib \
-    PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
+ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
     GIT_SSL_NO_VERIFY=1 \
     MAKEFLAGS="-j$(nproc)"
 
@@ -35,7 +39,7 @@ RUN set -eux; \
     libpcre3-dev zlib1g-dev libssl-dev libxslt1-dev libgd-dev libgeoip-dev \
     libperl-dev libbrotli-dev libzmq3-dev liblua5.1-dev libyaml-dev libxml2-dev \
     libcurl4-openssl-dev libjansson-dev libmagic-dev libtar-dev libmaxminddb-dev \
-    libxslt-dev libgd-dev libgeoip-dev libperl-dev libmail-dkim-perl \
+    libxslt-dev libgd-dev libgeoip-dev libperl-dev libmail-dkim-perl libjwt-dev\
     libnginx-mod-http-dav-ext libssl-dev libpcre2-dev; \
     update-ca-certificates; \
     rm -rf /var/lib/apt/lists/*; \
@@ -73,18 +77,26 @@ RUN set -eux; \
     ldconfig; \
     rm -rf ${LUAJIT_TAR_PATH} /usr/src/nginx/modules/luajit
 
+# 安装QuickJS引擎支持
+RUN set -eux; \
+    git clone https://github.com/bellard/quickjs /usr/src/nginx/modules/quickjs; \
+    cd /usr/src/nginx/modules/quickjs; \
+    CFLAGS='-fPIC' make libquickjs.a; \
+    echo "/usr/src/nginx/modules/quickjs" > /etc/ld.so.conf.d/quickjs.conf; \
+    ldconfig
+
 # 独立克隆各模块（恢复原始独立RUN指令）
 RUN set -eux; \
     git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git /usr/src/nginx/modules/ngx_devel_kit || \
     (echo "克隆ngx_devel_kit失败，重试..." && git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git /usr/src/nginx/modules/ngx_devel_kit)
 
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git /usr/src/nginx/modules/ngx_dynamic_healthcheck || \
-    (echo "克隆ngx_dynamic_healthcheck失败，重试..." && git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git /usr/src/nginx/modules/ngx_dynamic_healthcheck)
+    git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git /usr/src/nginx/modules/nginx-module-vts || \
+    (echo "克隆nginx-module-vts失败，重试..." && git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git /usr/src/nginx/modules/nginx-module-vts)
 
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/cubicdaiya/ngx_dynamic_upstream.git /usr/src/nginx/modules/ngx_dynamic_upstream || \
-    (echo "克隆ngx_dynamic_upstream失败，重试..." && git clone --depth 1 --branch master https://github.com/cubicdaiya/ngx_dynamic_upstream.git /usr/src/nginx/modules/ngx_dynamic_upstream)
+    git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git /usr/src/nginx/modules/ngx_dynamic_upstream || \
+    (echo "克隆ngx_dynamic_upstream失败，重试..." && git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git /usr/src/nginx/modules/ngx_dynamic_upstream)
 
 RUN set -eux; \
     git clone --depth 1 --branch master https://github.com/Lax/traffic-accounting-nginx-module.git /usr/src/nginx/modules/traffic-accounting || \
@@ -105,8 +117,8 @@ RUN set -eux; \
     cd /usr/src/nginx/modules/ngx_brotli && git submodule update --init
 
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/FRiCKLE/ngx_cache_purge.git /usr/src/nginx/modules/ngx_cache_purge || \
-    (echo "克隆ngx_cache_purge失败，重试..." && git clone --depth 1 --branch master https://github.com/FRiCKLE/ngx_cache_purge.git /usr/src/nginx/modules/ngx_cache_purge)
+    git clone --depth 1 --branch master https://github.com/nginx-modules/ngx_cache_purge.git /usr/src/nginx/modules/ngx_cache_purge || \
+    (echo "克隆ngx_cache_purge失败，重试..." && git clone --depth 1 --branch master https://github.com/nginx-modules/ngx_cache_purge.git /usr/src/nginx/modules/ngx_cache_purge)
 
 RUN set -eux; \
     git clone --depth 1 --branch master https://github.com/AirisX/nginx_cookie_flag_module.git /usr/src/nginx/modules/nginx_cookie_flag || \
@@ -187,8 +199,8 @@ RUN set -eux; \
     (echo "克隆nginx-upstream-fair失败，重试..." && git clone --depth 1 --branch master https://github.com/gnosek/nginx-upstream-fair.git /usr/src/nginx/modules/nginx-upstream-fair)
 
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/nicholaschiasson/ngx_upstream_jdomain.git /usr/src/nginx/modules/ngx_upstream_jdomain || \
-    (echo "克隆ngx_upstream_jdomain失败，重试..." && git clone --depth 1 --branch master https://github.com/nicholaschiasson/ngx_upstream_jdomain.git /usr/src/nginx/modules/ngx_upstream_jdomain)
+    git clone --depth 1 --branch master https://github.com/RekGRpth/ngx_upstream_jdomain.git /usr/src/nginx/modules/ngx_upstream_jdomain || \
+    (echo "克隆ngx_upstream_jdomain失败，重试..." && git clone --depth 1 --branch master https://github.com/RekGRpth/ngx_upstream_jdomain.git /usr/src/nginx/modules/ngx_upstream_jdomain)
 
 RUN set -eux; \
     git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_zstd_module.git /usr/src/nginx/modules/zstd-nginx || \
@@ -199,12 +211,12 @@ RUN set -eux; \
     (echo "克隆nginx-rtmp失败，重试..." && git clone --depth 1 --branch master https://github.com/arut/nginx-rtmp-module.git /usr/src/nginx/modules/nginx-rtmp)
 
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/yaoweibin/nginx_upstream_check_module.git /usr/src/nginx/modules/ngx_upstream_check || \
-    (echo "克隆ngx_upstream_check失败，重试..." && git clone --depth 1 --branch master https://github.com/yaoweibin/nginx_upstream_check_module.git /usr/src/nginx/modules/ngx_upstream_check)
+    git clone --depth 1 --branch master https://github.com/gi0baro/nginx-upstream-dynamic-servers.git /usr/src/nginx/modules/nginx-upstream-dynamic-servers || \
+    (echo "克隆nginx-upstream-dynamic-servers失败，重试..." && git clone --depth 1 --branch master https://github.com/gi0baro/nginx-upstream-dynamic-servers.git /usr/src/nginx/modules/nginx-upstream-dynamic-servers)
 
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/replay/ngx_http_consistent_hash.git /usr/src/nginx/modules/ngx_upstream_consistent_hash || \
-    (echo "克隆ngx_upstream_consistent_hash失败，重试..." && git clone --depth 1 --branch master https://github.com/replay/ngx_http_consistent_hash.git /usr/src/nginx/modules/ngx_upstream_consistent_hash)
+    git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_upstream_check_module.git /usr/src/nginx/modules/ngx_upstream_check || \
+    (echo "克隆ngx_upstream_check失败，重试..." && git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_upstream_check_module.git /usr/src/nginx/modules/ngx_upstream_check)
 
 # 应用upstream_check模块补丁（适配Nginx 1.29+）
 RUN set -eux; \
@@ -227,104 +239,102 @@ RUN set -eux; \
     cd ..; \
     rm -rf zstd-${ZSTD_VERSION} zstd-${ZSTD_VERSION}.tar.gz
 
-ENV ZSTD_INC=/usr/local/zstd-pic/include \
-    ZSTD_LIB=/usr/local/zstd-pic/lib
 
 # 编译Nginx（优化编译参数+修复LuaJIT链接+动态模块）
 WORKDIR /usr/src/nginx/src
-RUN set -eux; \
-    ./configure \
-        --prefix=/var/lib/nginx \
-        --sbin-path=/usr/sbin/nginx \
-        --modules-path=/usr/lib/nginx/modules \
-        --conf-path=/etc/nginx/nginx.conf \
-        --error-log-path=/var/log/nginx/error.log \
-        --http-log-path=/var/log/nginx/access.log \
-        --pid-path=/run/nginx/nginx.pid \
-        --lock-path=/run/nginx/nginx.lock \
-        --http-client-body-temp-path=/var/lib/nginx/tmp/client_body \
-        --http-proxy-temp-path=/var/lib/nginx/tmp/proxy \
-        --http-fastcgi-temp-path=/var/lib/nginx/tmp/fastcgi \
-        --http-uwsgi-temp-path=/var/lib/nginx/tmp/uwsgi \
-        --http-scgi-temp-path=/var/lib/nginx/tmp/scgi \
-        --with-perl_modules_path=/usr/lib/perl5/vendor_perl \
-        --user=nginx \
-        --group=nginx \
-        --with-threads \
-        --with-file-aio \
-        --with-http_ssl_module \
-        --with-http_v2_module \
-        --with-http_v3_module \
-        --with-http_realip_module \
-        --with-http_addition_module \
-        --with-http_xslt_module=dynamic \
-        --with-http_image_filter_module=dynamic \
-        --with-http_geoip_module=dynamic \
-        --with-http_sub_module \
-        --with-http_dav_module \
-        --with-http_flv_module \
-        --with-http_mp4_module \
-        --with-http_gunzip_module \
-        --with-http_gzip_static_module \
-        --with-http_auth_request_module \
-        --with-http_random_index_module \
-        --with-http_secure_link_module \
-        --with-http_degradation_module \
-        --with-http_slice_module \
-        --with-http_stub_status_module \
-        --with-http_perl_module=dynamic \
-        --with-mail=dynamic \
-        --with-mail_ssl_module \
-        --with-stream=dynamic \
-        --with-stream_ssl_module \
-        --with-stream_realip_module \
-        --with-stream_geoip_module=dynamic \
-        --with-stream_ssl_preread_module \
-        --with-cc-opt="-O2 -I${LUAJIT_INC} -I${ZSTD_INC} -I/usr/include" \
-        --with-ld-opt="-L${LUAJIT_LIB} -L${ZSTD_LIB} -Wl,-rpath,${LUAJIT_LIB}:${ZSTD_LIB} -lzstd -Wl,-Bsymbolic-functions -Wl,-z,relro -Wl,-z,now" \
-        --add-dynamic-module=../modules/njs/nginx \
-        --add-dynamic-module=../modules/ngx_devel_kit \
-        --add-dynamic-module=../modules/ngx_dynamic_healthcheck \
-        --add-dynamic-module=../modules/ngx_dynamic_upstream \
-        --add-dynamic-module=../modules/traffic-accounting \
-        --add-dynamic-module=../modules/array-var \
-        --add-dynamic-module=../modules/nginx-auth-jwt \
-        --add-dynamic-module=../modules/ngx_brotli \
-        --add-dynamic-module=../modules/ngx_cache_purge \
-        --add-dynamic-module=../modules/nginx_cookie_flag \
-        --add-dynamic-module=../modules/nginx-dav-ext \
-        --add-dynamic-module=../modules/echo \
-        --add-dynamic-module=../modules/encrypted-session \
-        --add-dynamic-module=../modules/ngx-fancyindex \
-        --add-dynamic-module=../modules/ngx_http_geoip2_module \
-        --add-dynamic-module=../modules/headers-more \
-        --add-dynamic-module=../modules/nginx-keyval \
-        --add-dynamic-module=../modules/nginx-log-zmq \
-        --add-dynamic-module=../modules/lua-nginx \
-        --add-dynamic-module=../modules/lua-upstream \
-        --add-dynamic-module=../modules/naxsi/naxsi_src \
-        --add-dynamic-module=../modules/nchan \
-        --add-dynamic-module=../modules/redis2 \
-        --add-dynamic-module=../modules/set-misc \
-        --add-dynamic-module=../modules/ngx_slowfs_cache \
-        --add-dynamic-module=../modules/nginx-upload \
-        --add-dynamic-module=../modules/nginx-upload-progress \
-        --add-dynamic-module=../modules/nginx-upstream-fair \
-        --add-dynamic-module=../modules/ngx_upstream_jdomain \
-        --add-dynamic-module=../modules/zstd-nginx \
-        --add-dynamic-module=../modules/nginx-rtmp \
-        --add-dynamic-module=../modules/ngx_upstream_check \
-        --add-dynamic-module=../modules/ngx_upstream_consistent_hash; \
-    make; \
-    make install; \
-    /usr/sbin/nginx -V; \
-    make clean && rm -rf /etc/nginx/modules-enabled/*
 
-RUN cd /etc/nginx/modules-available \
-    && for module in /usr/lib/nginx/modules/*.so; do \
-        module_name=$(basename $module .so); \
-        echo "load_module $module;" > $module_name.load; \
-    done
+RUN set -eux; \
+./configure \
+  --prefix=/var/lib/nginx \
+  --sbin-path=/usr/sbin/nginx \
+  --modules-path=/usr/lib/nginx/modules \
+  --conf-path=/etc/nginx/nginx.conf \
+  --error-log-path=/var/log/nginx/error.log \
+  --http-log-path=/var/log/nginx/access.log \
+  --pid-path=/run/nginx/nginx.pid \
+  --lock-path=/run/nginx/nginx.lock \
+  --http-client-body-temp-path=/var/lib/nginx/tmp/client_body \
+  --http-proxy-temp-path=/var/lib/nginx/tmp/proxy \
+  --http-fastcgi-temp-path=/var/lib/nginx/tmp/fastcgi \
+  --http-uwsgi-temp-path=/var/lib/nginx/tmp/uwsgi \
+  --http-scgi-temp-path=/var/lib/nginx/tmp/scgi \
+  --with-perl_modules_path=/usr/lib/perl5/vendor_perl \
+  --user=nginx \
+  --group=nginx \
+  --with-threads \
+  --with-file-aio \
+  --with-http_ssl_module \
+  --with-http_v2_module \
+  --with-http_v3_module \
+  --with-http_realip_module \
+  --with-http_addition_module \
+  --with-http_xslt_module=dynamic \
+  --with-http_image_filter_module=dynamic \
+  --with-http_geoip_module=dynamic \
+  --with-http_sub_module \
+  --with-http_dav_module \
+  --with-http_flv_module \
+  --with-http_mp4_module \
+  --with-http_gunzip_module \
+  --with-http_gzip_static_module \
+  --with-http_auth_request_module \
+  --with-http_random_index_module \
+  --with-http_secure_link_module \
+  --with-http_degradation_module \
+  --with-http_slice_module \
+  --with-http_stub_status_module \
+  --with-http_perl_module=dynamic \
+  --with-mail=dynamic \
+  --with-mail_ssl_module \
+  --with-stream=dynamic \
+  --with-stream_ssl_module \
+  --with-stream_realip_module \
+  --with-stream_geoip_module=dynamic \
+  --with-stream_ssl_preread_module \
+  --with-cc-opt="-O2 -I${LUAJIT_INC} -I${ZSTD_INC} -I/usr/include -I/usr/src/nginx/modules/quickjs" \
+  --with-ld-opt="-L${LUAJIT_LIB} -L${ZSTD_LIB} -L/usr/src/nginx/modules/quickjs -Wl,-rpath,${LUAJIT_LIB}:${ZSTD_LIB} -lzstd -lquickjs -Wl,-Bsymbolic-functions -Wl,-z,relro -Wl,-z,now" \
+  --add-dynamic-module=../modules/njs/nginx \
+  --add-dynamic-module=../modules/ngx_devel_kit \
+  --add-dynamic-module=../modules/nginx-module-vts \
+  --add-dynamic-module=../modules/ngx_dynamic_upstream \
+  --add-dynamic-module=../modules/traffic-accounting \
+  --add-dynamic-module=../modules/array-var \
+  --add-dynamic-module=../modules/nginx-auth-jwt \
+  --add-dynamic-module=../modules/ngx_brotli \
+  --add-dynamic-module=../modules/ngx_cache_purge \
+  --add-dynamic-module=../modules/nginx_cookie_flag \
+  --add-dynamic-module=../modules/nginx-dav-ext \
+  --add-dynamic-module=../modules/echo \
+  --add-dynamic-module=../modules/encrypted-session \
+  --add-dynamic-module=../modules/ngx-fancyindex \
+  --add-dynamic-module=../modules/ngx_http_geoip2_module \
+  --add-dynamic-module=../modules/headers-more \
+  --add-dynamic-module=../modules/nginx-keyval \
+  --add-dynamic-module=../modules/nginx-log-zmq \
+  --add-dynamic-module=../modules/lua-nginx \
+  --add-dynamic-module=../modules/lua-upstream \
+  --add-dynamic-module=../modules/naxsi/naxsi_src \
+  --add-dynamic-module=../modules/nchan \
+  --add-dynamic-module=../modules/redis2 \
+  --add-dynamic-module=../modules/set-misc \
+  --add-dynamic-module=../modules/ngx_slowfs_cache \
+  --add-dynamic-module=../modules/nginx-upload \
+  --add-dynamic-module=../modules/nginx-upload-progress \
+  --add-dynamic-module=../modules/nginx-upstream-fair \
+  --add-dynamic-module=../modules/ngx_upstream_jdomain \
+  --add-dynamic-module=../modules/zstd-nginx \
+  --add-dynamic-module=../modules/nginx-rtmp \
+  --add-dynamic-module=../modules/nginx-upstream-dynamic-servers \
+  --add-dynamic-module=../modules/ngx_upstream_check; \
+make; \
+make install; \
+/usr/sbin/nginx -V; \
+make clean && rm -rf /etc/nginx/modules-enabled/* && \
+  cd /etc/nginx/modules-available \
+  && for module in /usr/lib/nginx/modules/*.so; do \
+  module_name=$(basename $module .so); \
+  echo "load_module $module;" >$module_name.load; \
+done
 
 # 运行阶段：精简镜像（仅保留运行时依赖）
 FROM debian:bookworm-slim AS nginx-run
