@@ -357,7 +357,11 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/* ; \
     groupadd -r nginx && useradd -r -g nginx -s /sbin/nologin -d /var/lib/nginx nginx; \
     mkdir -p \
-        /var/lib/nginx/tmp/{client_body,proxy,fastcgi,uwsgi,scgi} \
+        /var/lib/nginx/tmp/client_body \
+        /var/lib/nginx/tmp/proxy \
+        /var/lib/nginx/tmp/fastcgi \
+        /var/lib/nginx/tmp/uwsgi \
+        /var/lib/nginx/tmp/scgi \
         /run/nginx \
         /etc/nginx/conf.d \
         /var/log/nginx; \
