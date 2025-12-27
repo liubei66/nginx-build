@@ -29,10 +29,6 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
 
 # 配置阿里云源+安装基础依赖（合并RUN减少层+修复CA证书逻辑）
 RUN set -eux; \
-    # rm -f /etc/apt/sources.list.d/* && \
-    # echo "deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" >/etc/apt/sources.list; \
-    # echo "deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >>/etc/apt/sources.list; \
-    # echo "deb http://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >>/etc/apt/sources.list; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
     wget git gcc g++ make patch unzip \
@@ -347,10 +343,6 @@ LABEL description="Nginx ${NGINX_VERSION} with custom modules (Alibaba Cloud Mir
 
 # 配置阿里云源+安装运行时依赖（恢复所有调试工具）
 RUN set -eux; \
-    rm -f /etc/apt/sources.list.d/* && \
-    # echo "deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
-    # echo "deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    # echo "deb http://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https && \
     update-ca-certificates; \
@@ -360,6 +352,7 @@ RUN set -eux; \
         libjansson4 libmagic1 libtar0 libmaxminddb0 curl \
         iproute2 procps lsof dnsutils net-tools less jq \
         vim-tiny wget htop tcpdump strace rsync telnet; \
+    rm -f /etc/apt/sources.list.d/* && \
     echo "deb https://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
     echo "deb https://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
     echo "deb https://mirrors.aliyun.com/debian/ bookworm-backports main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
