@@ -30,9 +30,9 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
 # 配置阿里云源+安装基础依赖（合并RUN减少层+修复CA证书逻辑）
 RUN set -eux; \
     rm -f /etc/apt/sources.list.d/* && \
-    echo "deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" >/etc/apt/sources.list; \
-    echo "deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >>/etc/apt/sources.list; \
-    echo "deb http://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >>/etc/apt/sources.list; \
+    # echo "deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" >/etc/apt/sources.list; \
+    # echo "deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >>/etc/apt/sources.list; \
+    # echo "deb http://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >>/etc/apt/sources.list; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
     wget git gcc g++ make patch unzip \
@@ -59,7 +59,7 @@ RUN set -eux; \
 # 下载并解压njs模块（修复路径问题：使用绝对路径解压）
 RUN set -eux; \
     NJS_TAR="/usr/src/nginx/njs-${NJS_VERSION}.tar.gz"; \
-    wget -O ${NJS_TAR} https://ghproxy.net/https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz; \
+    wget -O ${NJS_TAR} https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz; \
     tar -zxf ${NJS_TAR} -C /usr/src/nginx/modules; \
     mv /usr/src/nginx/modules/njs-${NJS_VERSION} /usr/src/nginx/modules/njs; \
     rm -f ${NJS_TAR}; \
@@ -221,7 +221,7 @@ RUN set -eux; \
 # 应用upstream_check模块补丁（适配Nginx 1.29+）
 RUN set -eux; \
     cd /usr/src/nginx/src; \
-    wget -O upstream_check.patch https://ghproxy.net/https://raw.githubusercontent.com/yaoweibin/nginx_upstream_check_module/master/check_1.20.1+.patch; \
+    wget -O upstream_check.patch https://raw.githubusercontent.com/yaoweibin/nginx_upstream_check_module/master/check_1.20.1+.patch; \
     patch -p1 < upstream_check.patch || echo "upstream_check补丁适配警告（非致命）"; \
     rm -f upstream_check.patch
 
@@ -347,23 +347,23 @@ LABEL description="Nginx ${NGINX_VERSION} with custom modules (Alibaba Cloud Mir
 
 # 配置阿里云源+安装运行时依赖（恢复所有调试工具）
 RUN set -eux; \
-    rm -f /etc/apt/sources.list.d/* && echo "deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
-    echo "deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    echo "deb http://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    rm -f /etc/apt/sources.list.d/* && \
+    # echo "deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
+    # echo "deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    # echo "deb http://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https && \
     update-ca-certificates; \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm-backports main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    echo "deb https://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    apt-get update && \
     apt-get install -y --no-install-recommends \
         libpcre3 zlib1g libssl3 libxslt1.1 libgd3 libgeoip1 libperl5.36 \
         libbrotli1 libzmq5 liblua5.1-0 libyaml-0-2 libxml2 libcurl3-gnutls \
         libjansson4 libmagic1 libtar0 libmaxminddb0 curl \
         iproute2 procps lsof dnsutils net-tools less jq \
         vim-tiny wget htop tcpdump strace rsync telnet; \
+    echo "deb https://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
+    echo "deb https://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    echo "deb https://mirrors.aliyun.com/debian/ bookworm-backports main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    echo "deb https://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
     rm -rf /var/lib/apt/lists/* ; \
     groupadd -r nginx && useradd -r -g nginx -s /sbin/nologin -d /var/lib/nginx nginx; \
     mkdir -p \
