@@ -43,7 +43,7 @@ RUN set -eux; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
     wget git gcc g++ make patch unzip libtool autoconf \
-    zlib1g-dev libxslt1-dev libgd-dev libgeoip-dev \
+    libpcre3-dev zlib1g-dev libxslt1-dev libgd-dev libgeoip-dev \
     libperl-dev libbrotli-dev libzmq3-dev liblua5.1-dev libyaml-dev libxml2-dev \
     libcurl4-openssl-dev libjansson-dev libmagic-dev libtar-dev libmaxminddb-dev \
     libxslt-dev libgd-dev libgeoip-dev libperl-dev libmail-dkim-perl libjwt-dev \
@@ -424,7 +424,7 @@ LABEL description="Nginx ${NGINX_VERSION} with OpenSSL ${OPENSSL_VERSION} + cust
 # 配置软件源并安装运行时依赖
 RUN set -eux; \
     apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates apt-transport-https && \
+    apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
         libpcre3 libpcre2-8-0 zlib1g libxslt1.1 libgd3 libgeoip1 libperl5.36 \
         libbrotli1 libzmq5 liblua5.1-0 libyaml-0-2 libxml2 libcurl3-gnutls \
         libjansson4 libmagic1 libtar0 libmaxminddb0 libjemalloc2 curl \
