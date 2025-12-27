@@ -43,7 +43,7 @@ RUN set -eux; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
     wget git gcc g++ make patch unzip libtool autoconf \
-    libpcre3-dev zlib1g-dev libxslt1-dev libgd-dev libgeoip-dev \
+    zlib1g-dev libxslt1-dev libgd-dev libgeoip-dev \
     libperl-dev libbrotli-dev libzmq3-dev liblua5.1-dev libyaml-dev libxml2-dev \
     libcurl4-openssl-dev libjansson-dev libmagic-dev libtar-dev libmaxminddb-dev \
     libxslt-dev libgd-dev libgeoip-dev libperl-dev libmail-dkim-perl libjwt-dev \
