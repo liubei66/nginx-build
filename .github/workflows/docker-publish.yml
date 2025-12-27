@@ -1,48 +1,44 @@
-name: Build and Push Nginx Image with Tag
+name: Build and Push Nginx Image (Tag/Release)
 
-# 触发条件（3种场景自动执行，覆盖所有发布需求）
+# ✅ 触发条件：①发布Release ②推送v开头Tag（二选一）
 on:
+  release:
+    types: [published]
   push:
-    branches: [main]
-    paths: ['Dockerfile']
-    tags: ['v*']  # 仅监听v开头的Tag，例v1.29.4、v1.30.0
+    tags: ['v*']
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # 1. 拉取仓库代码（含Dockerfile和Tag信息）
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. 提取GitHub Tag名称（自动适配，无需手动改版本）
-      - name: Extract Docker Tag from GitHub Tag
+      # ✅ 智能适配：优先从Release读Tag → 无则从推送的Tag读（双源兼容）
+      - name: Extract Tag (Release > Push)
         id: extract_tag
         run: |
-          # 优先提取Release/Tag的版本号，无则用latest
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          if [ -n "${{ github.event.release.tag_name }}" ]; then
+            # 优先级1：从Release事件读取Tag（发布Release时触发）
+            TAG_NAME=${{ github.event.release.tag_name }}
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # 优先级2：从推送的Tag读取（手动git push tag时触发）
             TAG_NAME=${GITHUB_REF#refs/tags/}
-            echo "DOCKER_TAG=$TAG_NAME" >> $GITHUB_ENV
           else
-            echo "DOCKER_TAG=latest" >> $GITHUB_ENV
+            TAG_NAME="latest"
           fi
+          echo "DOCKER_TAG=${TAG_NAME}" >> $GITHUB_ENV
+          echo "✅ 最终使用Docker Tag：${TAG_NAME}"
 
-      # 3. 登录Docker Hub（调用已配置的密钥，无需改动）
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 4. 构建镜像（自动绑定 用户名/仓库名/版本Tag）
-      - name: Build Docker Image
+      - name: Build & Push Image
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:${{ env.DOCKER_TAG }} .
-          # 无论什么Tag，都同步更新latest标签（必备）
           docker tag ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:${{ env.DOCKER_TAG }} ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:latest
-
-      # 5. 推送镜像（双Tag推送：版本Tag + latest Tag）
-      - name: Push Docker Image to Docker Hub
-        run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:${{ env.DOCKER_TAG }}
           docker push ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:latest
