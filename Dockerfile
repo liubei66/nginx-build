@@ -29,7 +29,7 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
 
 # 配置阿里云源+安装基础依赖（合并RUN减少层+修复CA证书逻辑）
 RUN set -eux; \
-    rm -f /etc/apt/sources.list.d/* && \
+    # rm -f /etc/apt/sources.list.d/* && \
     # echo "deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" >/etc/apt/sources.list; \
     # echo "deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >>/etc/apt/sources.list; \
     # echo "deb http://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >>/etc/apt/sources.list; \
