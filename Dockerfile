@@ -367,7 +367,6 @@ RUN set -eux; \
   --with-stream_realip_module \
   --with-stream_geoip_module=dynamic \
   --with-stream_ssl_preread_module \
-  --with-ktls \
   --with-cc-opt="-O3 -flto -I${LUAJIT_INC} -I${ZSTD_INC} -I${OPENSSL_SRC_DIR}/include -I/usr/include -I/usr/src/nginx/modules/quickjs -I/usr/local/include" \
   --with-ld-opt="-L${LUAJIT_LIB} -L${ZSTD_LIB} -L${OPENSSL_SRC_DIR} -L/usr/src/nginx/modules/quickjs -L/usr/local/lib -Wl,-rpath,${LUAJIT_LIB}:${ZSTD_LIB}:/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc -Wl,-Bsymbolic-functions -flto" \
   --add-dynamic-module=../modules/njs/nginx \
