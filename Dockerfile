@@ -120,7 +120,47 @@ RUN cd /src/nginx \
     && strip -s /usr/sbin/nginx \
     && strip -s /usr/lib/nginx/modules/*.so
 
-FROM alpine:latest AS production
+
+# 运行阶段：构建精简镜像
+FROM debian:bookworm-slim AS nginx-run
+
+
+LABEL maintainer="liubei66 <1967780821@qq.com>"
+
+# 配置软件源并安装运行时依赖
+RUN set -eux; \
+    apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
+        libpcre3 libpcre2-8-0 zlib1g libxslt1.1 libgd3 libgeoip1 libperl5.36 \
+        libbrotli1 libzmq5 liblua5.1-0 libyaml-0-2 libxml2 libcurl3-gnutls \
+        libjansson4 libmagic1 libtar0 libmaxminddb0 libjemalloc2 curl \
+        iproute2 procps lsof dnsutils net-tools less jq \
+        vim-tiny wget htop tcpdump strace rsync telnet; \
+    update-ca-certificates; \
+    rm -f /etc/apt/sources.list.d/*; \
+    echo "deb https://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
+    echo "deb https://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    echo "deb https://mirrors.aliyun.com/debian/ bookworm-backports main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    echo "deb https://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    rm -rf /var/lib/apt/lists/* ; \
+    groupadd -r nginx && useradd -r -g nginx -s /sbin/nologin -d /var/lib/nginx nginx; \
+    mkdir -p \
+        /var/lib/nginx/tmp/client_body \
+        /var/lib/nginx/tmp/proxy \
+        /var/lib/nginx/tmp/fastcgi \
+        /var/lib/nginx/tmp/uwsgi \
+        /var/lib/nginx/tmp/scgi \
+        /run/nginx \
+        /etc/nginx/conf.d \
+        /var/log/nginx; \
+        touch /var/log/nginx/access.log \
+        && touch /var/log/nginx/error.log \
+        && ln -sf /dev/stdout /var/log/nginx/access.log \
+        && ln -sf /dev/stderr /var/log/nginx/error.log \
+        chown -R nginx:nginx /var/lib/nginx /run/nginx /var/log/nginx; \
+        chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx
+
+# 复制编译产物
 
 COPY --from=build /etc/nginx /etc/nginx
 COPY --from=build /usr/sbin/nginx   /usr/sbin/nginx
@@ -128,36 +168,9 @@ COPY --from=build /usr/lib/nginx /usr/lib/nginx
 COPY --from=build /usr/local/lib/perl5  /usr/local/lib/perl5
 COPY --from=build /usr/lib/perl5/core_perl/perllocal.pod    /usr/lib/perl5/core_perl/perllocal.pod
 
-COPY assets/nginx.conf /etc/nginx/nginx.conf
-COPY assets/default.conf /etc/nginx/conf.d/default.conf
-COPY assets/index.html /etc/nginx/html/index.html
 
-RUN addgroup -S nginx \
-	&& adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G nginx nginx
+# 暴露端口
+EXPOSE 80 443
 
-RUN apk add --no-cache \
-    ca-certificates \
-    tzdata \
-    tini \
-    zlib \
-    pcre2 \
-    libstdc++ \
-    libxml2 \
-    libxslt \
-    perl \
-    libcurl \
-    geoip \
-    libmaxminddb-libs
-
-RUN mkdir -p /var/log/nginx/ \
-    && touch /var/log/nginx/access.log \
-    && touch /var/log/nginx/error.log \
-    && ln -sf /dev/stdout /var/log/nginx/access.log \
-	&& ln -sf /dev/stderr /var/log/nginx/error.log \
-    && ln -s /usr/lib/nginx/modules /etc/nginx/modules \
-    && sed -i "s|#load_module modules/ngx_http_modsecurity_module.so;||g" /etc/nginx/nginx.conf
-
-EXPOSE 80 443 443/udp
-
-ENTRYPOINT ["tini", "--", "nginx"]
-CMD ["-g", "daemon off;"]
+# 启动命令
+CMD ["sh", "-c", "nginx -g 'daemon off;'"]
