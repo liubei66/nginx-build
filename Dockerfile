@@ -8,7 +8,7 @@ ARG LUAJIT_INC=/usr/local/include/luajit-2.1
 ARG LUAJIT_LIB=/usr/local/lib
 ARG ZSTD_INC=/usr/local/zstd-pic/include
 ARG ZSTD_LIB=/usr/local/zstd-pic/lib
-ARG OPENSSL_VERSION=3.0.15-quic1
+ARG OPENSSL_VERSION=3.3.0-quic1
 ARG OPENSSL_URL=https://github.com/quictls/openssl/archive/refs/tags/openssl-${OPENSSL_VERSION}.tar.gz
 ARG OPENSSL_SRC_DIR=/usr/src/openssl
 ARG PCRE2_VERSION=10.47
@@ -27,8 +27,9 @@ ARG LUAJIT_INC
 ARG LUAJIT_LIB
 ARG ZSTD_INC
 ARG ZSTD_LIB
-ARG QUIC_TLS_REPO=https://github.com/quictls/quictls.git
-ARG OPENSSL_SRC_DIR=/usr/src/quictls
+ARG OPENSSL_VERSION
+ARG OPENSSL_URL
+ARG OPENSSL_SRC_DIR
 ARG PCRE2_VERSION
 ARG JEMALLOC_VERSION
 
@@ -56,7 +57,9 @@ RUN set -eux; \
 
 # 编译OpenSSL
 RUN set -eux; \
-    git clone --depth 1 ${QUIC_TLS_REPO} ${OPENSSL_SRC_DIR}; \
+    wget -O /usr/src/openssl-${OPENSSL_VERSION}.tar.gz ${OPENSSL_URL}; \
+    tar -zxf /usr/src/openssl-${OPENSSL_VERSION}.tar.gz -C ${OPENSSL_SRC_DIR} --strip-components=1; \
+    rm -f /usr/src/openssl-${OPENSSL_VERSION}.tar.gz; \
     cd ${OPENSSL_SRC_DIR}; \
     ./Configure \
         no-shared \
@@ -65,7 +68,6 @@ RUN set -eux; \
         enable-tls1_3 \
         enable-ktls \
         enable-quic \
-        --prefix=/usr/local/quictls \
         linux-x86_64; \
     make -j$(nproc)
 
@@ -333,10 +335,6 @@ RUN set -eux; \
   --http-uwsgi-temp-path=/var/lib/nginx/tmp/uwsgi \
   --http-scgi-temp-path=/var/lib/nginx/tmp/scgi \
   --with-perl_modules_path=/usr/lib/perl5/vendor_perl \
-  --with-openssl=${OPENSSL_SRC_DIR} \
-  --with-openssl-opt="enable-tls1_3 enable-ktls enable-quic" \
-  --with-cc-opt="-O3 -fPIE -I${LUAJIT_INC} -I${ZSTD_INC} -I/usr/include -I/usr/src/nginx/modules/quickjs -I/usr/local/include" \
-  --with-ld-opt="-fPIE -L${LUAJIT_LIB} -L${ZSTD_LIB} -L/usr/src/nginx/modules/quickjs -L/usr/local/lib -Wl,-rpath,${LUAJIT_LIB}:${ZSTD_LIB}:/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc -Wl,-Bsymbolic-functions -flto" \
   --user=nginx \
   --group=nginx \
   --with-threads \
@@ -369,6 +367,8 @@ RUN set -eux; \
   --with-stream_realip_module \
   --with-stream_geoip_module=dynamic \
   --with-stream_ssl_preread_module \
+  --with-cc-opt="-O3 -flto -I${LUAJIT_INC} -I${ZSTD_INC} -I${OPENSSL_SRC_DIR}/include -I/usr/include -I/usr/src/nginx/modules/quickjs -I/usr/local/include" \
+  --with-ld-opt="-L${LUAJIT_LIB} -L${ZSTD_LIB} -L${OPENSSL_SRC_DIR} -L/usr/src/nginx/modules/quickjs -L/usr/local/lib -Wl,-rpath,${LUAJIT_LIB}:${ZSTD_LIB}:/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc -Wl,-Bsymbolic-functions -flto" \
   --add-dynamic-module=../modules/njs/nginx \
   --add-dynamic-module=../modules/ngx_devel_kit \
   --add-dynamic-module=../modules/nginx-module-vts \
