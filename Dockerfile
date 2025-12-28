@@ -1,5 +1,4 @@
 # 全局构建参数定义
-ARG BUILD
 
 ARG NGINX_VERSION=1.29.4
 ARG NJS_VERSION=0.9.4
@@ -284,7 +283,6 @@ RUN set -eux; \
 RUN set -eux; \
     cd /src/nginx && \
     ./configure \
-        --build=${BUILD} \
         --prefix=/var/lib/nginx \
         --sbin-path=/usr/sbin/nginx \
         --modules-path=/usr/lib/nginx/modules \
