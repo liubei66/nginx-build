@@ -51,8 +51,7 @@ RUN set -eux; \
     apt-get purge -y libssl-dev; \
     update-ca-certificates; \
     rm -rf /var/lib/apt/lists/*; \
-    mkdir -p /usr/src/nginx /usr/src/nginx/src /usr/src/nginx/modules \
-             ${OPENSSL_SRC_DIR} && \
+    mkdir -p /usr/src/nginx /usr/src/nginx/src /usr/src/nginx/modules && \
     chmod -R 755 /usr/src/nginx
 
 # 编译BoringSSL
