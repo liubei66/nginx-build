@@ -63,7 +63,6 @@ RUN set -eux; \
         gd-dev \
         openssl-dev \
         luajit-dev \
-        libtar-dev \
         jansson-dev \
         file-dev \
         go
