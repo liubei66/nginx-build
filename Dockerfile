@@ -52,6 +52,7 @@ RUN set -eux; \
     update-ca-certificates; \
     rm -rf /var/lib/apt/lists/*; \
     mkdir -p /usr/src/nginx /usr/src/nginx/src /usr/src/nginx/modules && \
+    mkdir -p ${BORINGSSL_SRC_DIR} && \
     chmod -R 755 /usr/src/nginx
 
 # 编译BoringSSL
