@@ -1,4 +1,4 @@
-# 全局定义构建参数
+# 全局构建参数定义
 ARG NGINX_VERSION=1.29.4
 ARG NJS_VERSION=0.9.4
 ARG LUAJIT_VERSION=2.1-20250826
@@ -8,16 +8,14 @@ ARG LUAJIT_INC=/usr/local/include/luajit-2.1
 ARG LUAJIT_LIB=/usr/local/lib
 ARG ZSTD_INC=/usr/local/zstd-pic/include
 ARG ZSTD_LIB=/usr/local/zstd-pic/lib
-ARG BORINGSSL_COMMIT=0.20251124.0
-ARG BORINGSSL_URL=https://github.com/google/boringssl/archive/refs/tags/${BORINGSSL_COMMIT}.tar.gz
 ARG BORINGSSL_SRC_DIR=/usr/src/boringssl
 ARG PCRE2_VERSION=10.47
 ARG JEMALLOC_VERSION=5.3.0
 
-# 构建阶段：编译nginx
+# 构建阶段：编译Nginx及依赖模块
 FROM debian:bookworm-slim AS nginx-build
 
-# 继承全局参数
+# 继承全局构建参数
 ARG NGINX_VERSION
 ARG NJS_VERSION
 ARG LUAJIT_VERSION
@@ -27,8 +25,6 @@ ARG LUAJIT_INC
 ARG LUAJIT_LIB
 ARG ZSTD_INC
 ARG ZSTD_LIB
-ARG BORINGSSL_COMMIT
-ARG BORINGSSL_URL
 ARG BORINGSSL_SRC_DIR
 ARG PCRE2_VERSION
 ARG JEMALLOC_VERSION
@@ -38,11 +34,11 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
     GIT_SSL_NO_VERIFY=1 \
     MAKEFLAGS="-j$(nproc)"
 
-# 配置软件源并安装编译依赖
+# 安装编译依赖并创建工作目录
 RUN set -eux; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
-    wget git gcc g++ make patch unzip libtool autoconf \
+    wget git gcc g++ make patch unzip libtool autoconf cmake \
     libpcre3-dev zlib1g-dev libxslt1-dev libgd-dev libgeoip-dev \
     libperl-dev libbrotli-dev libzmq3-dev liblua5.1-dev libyaml-dev libxml2-dev \
     libcurl4-openssl-dev libjansson-dev libmagic-dev libtar-dev libmaxminddb-dev \
@@ -51,33 +47,31 @@ RUN set -eux; \
     apt-get purge -y libssl-dev; \
     update-ca-certificates; \
     rm -rf /var/lib/apt/lists/*; \
-    mkdir -p /usr/src/nginx /usr/src/nginx/src /usr/src/nginx/modules && \
-    mkdir -p ${BORINGSSL_SRC_DIR} && \
+    mkdir -p /usr/src/nginx /usr/src/nginx/src /usr/src/nginx/modules \
+             ${BORINGSSL_SRC_DIR} && \
     chmod -R 755 /usr/src/nginx
 
-# 编译BoringSSL
+# 编译安装BoringSSL
 RUN set -eux; \
-    wget -O /usr/src/boringssl-${BORINGSSL_COMMIT}.tar.gz ${BORINGSSL_URL}; \
-    tar -zxf /usr/src/boringssl-${BORINGSSL_COMMIT}.tar.gz -C ${BORINGSSL_SRC_DIR} --strip-components=1; \
-    rm -f /usr/src/boringssl-${BORINGSSL_COMMIT}.tar.gz; \
-    mkdir -p ${BORINGSSL_SRC_DIR}/build; \
-    cd ${BORINGSSL_SRC_DIR}/build; \
-    cmake -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE -DCMAKE_BUILD_TYPE=Release ..; \
-    make -j$(nproc) ssl crypto; \
-    mkdir -p /usr/local/include/boringssl; \
-    cp ../include/openssl/*.h /usr/local/include/boringssl/; \
-    cp ssl/libssl.a crypto/libcrypto.a /usr/local/lib/; \
-    cd ${BORINGSSL_SRC_DIR}/util; \
-    ./generate_build_files.pl; \
-    ldconfig
+    cd ${BORINGSSL_SRC_DIR}; \
+    git clone --depth 1 https://github.com/google/boringssl.git .; \
+    mkdir build && cd build; \
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..; \
+    make -j$(nproc); \
+    cp -r ../include/openssl /usr/local/include/; \
+    cp crypto/libcrypto.a ssl/libssl.a /usr/local/lib/; \
+    cd .. && rm -rf build
 
-# 下载并解压Nginx源码
+# 下载Nginx源码并应用BoringSSL适配补丁
 RUN set -eux; \
-    mkdir -p /usr/src/nginx/src; \
     wget -O /usr/src/nginx/nginx-${NGINX_VERSION}.tar.gz \
         https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz; \
     tar -zxf /usr/src/nginx/nginx-${NGINX_VERSION}.tar.gz -C /usr/src/nginx/src --strip-components=1; \
-    rm -f /usr/src/nginx/nginx-${NGINX_VERSION}.tar.gz
+    rm -f /usr/src/nginx/nginx-${NGINX_VERSION}.tar.gz; \
+    cd /usr/src/nginx/src; \
+    wget -O boringssl.patch https://raw.githubusercontent.com/kn007/patch/master/nginx_boringssl/nginx-1.25+-boringssl.patch; \
+    patch -p1 < boringssl.patch; \
+    rm -f boringssl.patch
 
 # 下载并解压njs模块
 RUN set -eux; \
@@ -100,7 +94,7 @@ RUN set -eux; \
     ldconfig; \
     rm -rf ${LUAJIT_TAR_PATH} /usr/src/nginx/modules/luajit
 
-# 编译PCRE2
+# 编译安装PCRE2
 RUN set -eux; \
     cd /tmp; \
     wget -O pcre2-${PCRE2_VERSION}.tar.gz https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz; \
@@ -118,7 +112,7 @@ RUN set -eux; \
     ldconfig; \
     rm -rf /tmp/pcre2-${PCRE2_VERSION} /tmp/pcre2-${PCRE2_VERSION}.tar.gz
 
-# 编译Jemalloc
+# 编译安装Jemalloc
 RUN set -eux; \
     cd /tmp; \
     wget -O jemalloc-${JEMALLOC_VERSION}.tar.gz https://github.com/jemalloc/jemalloc/archive/refs/tags/${JEMALLOC_VERSION}.tar.gz; \
@@ -132,7 +126,7 @@ RUN set -eux; \
     ldconfig; \
     rm -rf /tmp/jemalloc-${JEMALLOC_VERSION} /tmp/jemalloc-${JEMALLOC_VERSION}.tar.gz
 
-# 安装QuickJS引擎支持
+# 编译安装QuickJS
 RUN set -eux; \
     git clone https://github.com/bellard/quickjs /usr/src/nginx/modules/quickjs; \
     cd /usr/src/nginx/modules/quickjs; \
@@ -142,168 +136,137 @@ RUN set -eux; \
 
 # 克隆ngx_devel_kit模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git /usr/src/nginx/modules/ngx_devel_kit || \
-    (echo "克隆ngx_devel_kit失败，重试..." && git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git /usr/src/nginx/modules/ngx_devel_kit)
+    git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git /usr/src/nginx/modules/ngx_devel_kit
 
 # 克隆nginx-module-vts模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git /usr/src/nginx/modules/nginx-module-vts || \
-    (echo "克隆nginx-module-vts失败，重试..." && git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git /usr/src/nginx/modules/nginx-module-vts)
+    git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git /usr/src/nginx/modules/nginx-module-vts
 
 # 克隆ngx_dynamic_upstream模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git /usr/src/nginx/modules/ngx_dynamic_upstream || \
-    (echo "克隆ngx_dynamic_upstream失败，重试..." && git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git /usr/src/nginx/modules/ngx_dynamic_upstream)
+    git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git /usr/src/nginx/modules/ngx_dynamic_upstream
 
 # 克隆traffic-accounting模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/Lax/traffic-accounting-nginx-module.git /usr/src/nginx/modules/traffic-accounting || \
-    (echo "克隆traffic-accounting失败，重试..." && git clone --depth 1 --branch master https://github.com/Lax/traffic-accounting-nginx-module.git /usr/src/nginx/modules/traffic-accounting)
+    git clone --depth 1 --branch master https://github.com/Lax/traffic-accounting-nginx-module.git /usr/src/nginx/modules/traffic-accounting
 
 # 克隆array-var模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/openresty/array-var-nginx-module.git /usr/src/nginx/modules/array-var || \
-    (echo "克隆array-var失败，重试..." && git clone --depth 1 --branch master https://github.com/openresty/array-var-nginx-module.git /usr/src/nginx/modules/array-var)
+    git clone --depth 1 --branch master https://github.com/openresty/array-var-nginx-module.git /usr/src/nginx/modules/array-var
 
 # 克隆ngx_brotli模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/google/ngx_brotli.git /usr/src/nginx/modules/ngx_brotli || \
-    (echo "克隆ngx_brotli失败，重试..." && git clone --depth 1 --branch master https://github.com/google/ngx_brotli.git /usr/src/nginx/modules/ngx_brotli); \
+    git clone --depth 1 --branch master https://github.com/google/ngx_brotli.git /usr/src/nginx/modules/ngx_brotli; \
     cd /usr/src/nginx/modules/ngx_brotli && git submodule update --init
 
 # 克隆ngx_cache_purge模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/nginx-modules/ngx_cache_purge.git /usr/src/nginx/modules/ngx_cache_purge || \
-    (echo "克隆ngx_cache_purge失败，重试..." && git clone --depth 1 --branch master https://github.com/nginx-modules/ngx_cache_purge.git /usr/src/nginx/modules/ngx_cache_purge)
+    git clone --depth 1 --branch master https://github.com/nginx-modules/ngx_cache_purge.git /usr/src/nginx/modules/ngx_cache_purge
 
 # 克隆nginx_cookie_flag模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/AirisX/nginx_cookie_flag_module.git /usr/src/nginx/modules/nginx_cookie_flag || \
-    (echo "克隆nginx_cookie_flag失败，重试..." && git clone --depth 1 --branch master https://github.com/AirisX/nginx_cookie_flag_module.git /usr/src/nginx/modules/nginx_cookie_flag)
+    git clone --depth 1 --branch master https://github.com/AirisX/nginx_cookie_flag_module.git /usr/src/nginx/modules/nginx_cookie_flag
 
 # 克隆nginx-dav-ext模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/arut/nginx-dav-ext-module.git /usr/src/nginx/modules/nginx-dav-ext || \
-    (echo "克隆nginx-dav-ext失败，重试..." && git clone --depth 1 --branch master https://github.com/arut/nginx-dav-ext-module.git /usr/src/nginx/modules/nginx-dav-ext)
+    git clone --depth 1 --branch master https://github.com/arut/nginx-dav-ext-module.git /usr/src/nginx/modules/nginx-dav-ext
 
 # 克隆echo模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/openresty/echo-nginx-module.git /usr/src/nginx/modules/echo || \
-    (echo "克隆echo失败，重试..." && git clone --depth 1 --branch master https://github.com/openresty/echo-nginx-module.git /usr/src/nginx/modules/echo)
+    git clone --depth 1 --branch master https://github.com/openresty/echo-nginx-module.git /usr/src/nginx/modules/echo
 
 # 克隆encrypted-session模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/openresty/encrypted-session-nginx-module.git /usr/src/nginx/modules/encrypted-session || \
-    (echo "克隆encrypted-session失败，重试..." && git clone --depth 1 --branch master https://github.com/openresty/encrypted-session-nginx-module.git /usr/src/nginx/modules/encrypted-session)
+    git clone --depth 1 --branch master https://github.com/openresty/encrypted-session-nginx-module.git /usr/src/nginx/modules/encrypted-session
 
 # 克隆headers-more模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/openresty/headers-more-nginx-module.git /usr/src/nginx/modules/headers-more || \
-    (echo "克隆headers-more失败，重试..." && git clone --depth 1 --branch master https://github.com/openresty/headers-more-nginx-module.git /usr/src/nginx/modules/headers-more)
+    git clone --depth 1 --branch master https://github.com/openresty/headers-more-nginx-module.git /usr/src/nginx/modules/headers-more
 
 # 克隆lua-nginx模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/openresty/lua-nginx-module.git /usr/src/nginx/modules/lua-nginx || \
-    (echo "克隆lua-nginx失败，重试..." && git clone --depth 1 --branch master https://github.com/openresty/lua-nginx-module.git /usr/src/nginx/modules/lua-nginx)
+    git clone --depth 1 --branch master https://github.com/openresty/lua-nginx-module.git /usr/src/nginx/modules/lua-nginx
 
 # 克隆lua-upstream模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/openresty/lua-upstream-nginx-module.git /usr/src/nginx/modules/lua-upstream || \
-    (echo "克隆lua-upstream失败，重试..." && git clone --depth 1 --branch master https://github.com/openresty/lua-upstream-nginx-module.git /usr/src/nginx/modules/lua-upstream)
+    git clone --depth 1 --branch master https://github.com/openresty/lua-upstream-nginx-module.git /usr/src/nginx/modules/lua-upstream
 
 # 克隆redis2模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/openresty/redis2-nginx-module.git /usr/src/nginx/modules/redis2 || \
-    (echo "克隆redis2失败，重试..." && git clone --depth 1 --branch master https://github.com/openresty/redis2-nginx-module.git /usr/src/nginx/modules/redis2)
+    git clone --depth 1 --branch master https://github.com/openresty/redis2-nginx-module.git /usr/src/nginx/modules/redis2
 
 # 克隆set-misc模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/openresty/set-misc-nginx-module.git /usr/src/nginx/modules/set-misc || \
-    (echo "克隆set-misc失败，重试..." && git clone --depth 1 --branch master https://github.com/openresty/set-misc-nginx-module.git /usr/src/nginx/modules/set-misc)
+    git clone --depth 1 --branch master https://github.com/openresty/set-misc-nginx-module.git /usr/src/nginx/modules/set-misc
 
 # 克隆ngx-fancyindex模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/aperezdc/ngx-fancyindex.git /usr/src/nginx/modules/ngx-fancyindex || \
-    (echo "克隆ngx-fancyindex失败，重试..." && git clone --depth 1 --branch master https://github.com/aperezdc/ngx-fancyindex.git /usr/src/nginx/modules/ngx-fancyindex)
+    git clone --depth 1 --branch master https://github.com/aperezdc/ngx-fancyindex.git /usr/src/nginx/modules/ngx-fancyindex
 
 # 克隆ngx_http_geoip2_module模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/leev/ngx_http_geoip2_module.git /usr/src/nginx/modules/ngx_http_geoip2_module || \
-    (echo "克隆ngx_http_geoip2_module失败，重试..." && git clone --depth 1 --branch master https://github.com/leev/ngx_http_geoip2_module.git /usr/src/nginx/modules/ngx_http_geoip2_module)
+    git clone --depth 1 --branch master https://github.com/leev/ngx_http_geoip2_module.git /usr/src/nginx/modules/ngx_http_geoip2_module
 
 # 克隆nginx-keyval模块
 RUN set -eux; \
-    git clone --depth 1 --branch main https://github.com/kjdev/nginx-keyval.git /usr/src/nginx/modules/nginx-keyval || \
-    (echo "克隆nginx-keyval失败，重试..." && git clone --depth 1 --branch main https://github.com/kjdev/nginx-keyval.git /usr/src/nginx/modules/nginx-keyval)
+    git clone --depth 1 --branch main https://github.com/kjdev/nginx-keyval.git /usr/src/nginx/modules/nginx-keyval
 
 # 克隆nginx-log-zmq模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/nginx-modules/nginx-log-zmq.git /usr/src/nginx/modules/nginx-log-zmq || \
-    (echo "克隆nginx-log-zmq失败，重试..." && git clone --depth 1 --branch master https://github.com/nginx-modules/nginx-log-zmq.git /usr/src/nginx/modules/nginx-log-zmq)
+    git clone --depth 1 --branch master https://github.com/nginx-modules/nginx-log-zmq.git /usr/src/nginx/modules/nginx-log-zmq
 
 # 克隆naxsi模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/nbs-system/naxsi.git /usr/src/nginx/modules/naxsi || \
-    (echo "克隆naxsi失败，重试..." && git clone --depth 1 --branch master https://github.com/nbs-system/naxsi.git /usr/src/nginx/modules/naxsi)
+    git clone --depth 1 --branch master https://github.com/nbs-system/naxsi.git /usr/src/nginx/modules/naxsi
 
 # 克隆nchan模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/slact/nchan.git /usr/src/nginx/modules/nchan || \
-    (echo "克隆nchan失败，重试..." && git clone --depth 1 --branch master https://github.com/slact/nchan.git /usr/src/nginx/modules/nchan)
+    git clone --depth 1 --branch master https://github.com/slact/nchan.git /usr/src/nginx/modules/nchan
 
 # 克隆ngx_slowfs_cache模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/FRiCKLE/ngx_slowfs_cache.git /usr/src/nginx/modules/ngx_slowfs_cache || \
-    (echo "克隆ngx_slowfs_cache失败，重试..." && git clone --depth 1 --branch master https://github.com/FRiCKLE/ngx_slowfs_cache.git /usr/src/nginx/modules/ngx_slowfs_cache)
+    git clone --depth 1 --branch master https://github.com/FRiCKLE/ngx_slowfs_cache.git /usr/src/nginx/modules/ngx_slowfs_cache
 
 # 克隆nginx-upload模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/fdintino/nginx-upload-module.git /usr/src/nginx/modules/nginx-upload || \
-    (echo "克隆nginx-upload失败，重试..." && git clone --depth 1 --branch master https://github.com/fdintino/nginx-upload-module.git /usr/src/nginx/modules/nginx-upload)
+    git clone --depth 1 --branch master https://github.com/fdintino/nginx-upload-module.git /usr/src/nginx/modules/nginx-upload
 
 # 克隆nginx-upload-progress模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/masterzen/nginx-upload-progress-module.git /usr/src/nginx/modules/nginx-upload-progress || \
-    (echo "克隆nginx-upload-progress失败，重试..." && git clone --depth 1 --branch master https://github.com/masterzen/nginx-upload-progress-module.git /usr/src/nginx/modules/nginx-upload-progress)
+    git clone --depth 1 --branch master https://github.com/masterzen/nginx-upload-progress-module.git /usr/src/nginx/modules/nginx-upload-progress
 
 # 克隆nginx-upstream-fair模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/runenyUnidex/nginx-upstream-fair.git /usr/src/nginx/modules/nginx-upstream-fair || \
-    (echo "克隆nginx-upstream-fair失败，重试..." && git clone --depth 1 --branch master https://github.com/gnosek/nginx-upstream-fair.git /usr/src/nginx/modules/nginx-upstream-fair)
+    git clone --depth 1 --branch master https://github.com/runenyUnidex/nginx-upstream-fair.git /usr/src/nginx/modules/nginx-upstream-fair
 
 # 克隆ngx_upstream_jdomain模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/RekGRpth/ngx_upstream_jdomain.git /usr/src/nginx/modules/ngx_upstream_jdomain || \
-    (echo "克隆ngx_upstream_jdomain失败，重试..." && git clone --depth 1 --branch master https://github.com/RekGRpth/ngx_upstream_jdomain.git /usr/src/nginx/modules/ngx_upstream_jdomain)
+    git clone --depth 1 --branch master https://github.com/RekGRpth/ngx_upstream_jdomain.git /usr/src/nginx/modules/ngx_upstream_jdomain
 
 # 克隆zstd-nginx模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_zstd_module.git /usr/src/nginx/modules/zstd-nginx || \
-    (echo "克隆zstd-nginx失败，重试..." && git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_zstd_module.git /usr/src/nginx/modules/zstd-nginx)
+    git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_zstd_module.git /usr/src/nginx/modules/zstd-nginx
 
 # 克隆nginx-rtmp模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/arut/nginx-rtmp-module.git /usr/src/nginx/modules/nginx-rtmp || \
-    (echo "克隆nginx-rtmp失败，重试..." && git clone --depth 1 --branch master https://github.com/arut/nginx-rtmp-module.git /usr/src/nginx/modules/nginx-rtmp)
+    git clone --depth 1 --branch master https://github.com/arut/nginx-rtmp-module.git /usr/src/nginx/modules/nginx-rtmp
 
 # 克隆nginx-upstream-dynamic-servers模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/gi0baro/nginx-upstream-dynamic-servers.git /usr/src/nginx/modules/nginx-upstream-dynamic-servers || \
-    (echo "克隆nginx-upstream-dynamic-servers失败，重试..." && git clone --depth 1 --branch master https://github.com/gi0baro/nginx-upstream-dynamic-servers.git /usr/src/nginx/modules/nginx-upstream-dynamic-servers)
+    git clone --depth 1 --branch master https://github.com/gi0baro/nginx-upstream-dynamic-servers.git /usr/src/nginx/modules/nginx-upstream-dynamic-servers
 
 # 克隆ngx_upstream_check模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_upstream_check_module.git /usr/src/nginx/modules/ngx_upstream_check || \
-    (echo "克隆ngx_upstream_check失败，重试..." && git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_upstream_check_module.git /usr/src/nginx/modules/ngx_upstream_check)
+    git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_upstream_check_module.git /usr/src/nginx/modules/ngx_upstream_check
 
 # 应用upstream_check模块补丁
 RUN set -eux; \
     cd /usr/src/nginx/src; \
     wget -O upstream_check.patch https://raw.githubusercontent.com/yaoweibin/nginx_upstream_check_module/master/check_1.20.1+.patch; \
-    patch -p1 < upstream_check.patch || echo "upstream_check补丁适配警告"; \
+    patch -p1 < upstream_check.patch; \
     rm -f upstream_check.patch
 
-# 编译zstd
+# 编译安装zstd
 RUN set -eux; \
     mkdir -p /usr/local/zstd-pic; \
     cd /tmp; \
@@ -317,7 +280,7 @@ RUN set -eux; \
     cd ..; \
     rm -rf zstd-${ZSTD_VERSION} zstd-${ZSTD_VERSION}.tar.gz
 
-# 编译Nginx
+# 编译Nginx并安装模块配置
 WORKDIR /usr/src/nginx/src
 RUN set -eux; \
 ./configure \
@@ -367,8 +330,9 @@ RUN set -eux; \
   --with-stream_realip_module \
   --with-stream_geoip_module=dynamic \
   --with-stream_ssl_preread_module \
-  --with-cc-opt="-O3 -flto -I${LUAJIT_INC} -I${ZSTD_INC} -I/usr/local/include/boringssl -I/usr/include -I/usr/src/nginx/modules/quickjs -I/usr/local/include" \
-  --with-ld-opt="-L${LUAJIT_LIB} -L${ZSTD_LIB} -L/usr/local/lib -L/usr/src/nginx/modules/quickjs -L/usr/local/lib -Wl,-rpath,${LUAJIT_LIB}:${ZSTD_LIB}:/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc -Wl,-Bsymbolic-functions -flto" \
+  --with-openssl=${BORINGSSL_SRC_DIR} \
+  --with-cc-opt="-O3 -flto -I${LUAJIT_INC} -I${ZSTD_INC} -I/usr/local/include -I/usr/src/nginx/modules/quickjs -I/usr/local/include" \
+  --with-ld-opt="-L${LUAJIT_LIB} -L${ZSTD_LIB} -L/usr/src/nginx/modules/quickjs -L/usr/local/lib -Wl,-rpath,${LUAJIT_LIB}:${ZSTD_LIB}:/usr/local/lib -lzstd -lquickjs -lz -lpcre2-8 -ljemalloc -lpthread -Wl,-Bsymbolic-functions -flto" \
   --add-dynamic-module=../modules/njs/nginx \
   --add-dynamic-module=../modules/ngx_devel_kit \
   --add-dynamic-module=../modules/nginx-module-vts \
@@ -404,7 +368,7 @@ RUN set -eux; \
 make -j$(nproc); \
 make install; \
 /usr/sbin/nginx -V; \
-make clean && rm -rf /etc/nginx/modules-enabled/* ${OPENSSL_SRC_DIR} && \
+make clean && rm -rf /etc/nginx/modules-enabled/* ${BORINGSSL_SRC_DIR} && \
   cd /etc/nginx/modules-available \
   && for module in /usr/lib/nginx/modules/*.so; do \
   module_name=$(basename $module .so); \
@@ -415,12 +379,11 @@ done
 FROM debian:bookworm-slim AS nginx-run
 
 ARG NGINX_VERSION
-ARG OPENSSL_VERSION
 
 LABEL maintainer="liubei66 <1967780821@qq.com>"
-LABEL description="Nginx ${NGINX_VERSION} with OpenSSL ${OPENSSL_VERSION} + custom modules + PCRE2 JIT + Jemalloc + kTLS"
+LABEL description="Nginx ${NGINX_VERSION} with BoringSSL + custom modules + PCRE2 JIT + Jemalloc + kTLS"
 
-# 配置软件源并安装运行时依赖
+# 安装运行时依赖并创建系统用户
 RUN set -eux; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
@@ -449,7 +412,7 @@ RUN set -eux; \
     chown -R nginx:nginx /var/lib/nginx /run/nginx /var/log/nginx; \
     chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx
 
-# 复制编译产物
+# 复制编译产物到运行镜像
 COPY --from=nginx-build /usr/sbin/nginx /usr/sbin/nginx
 COPY --from=nginx-build /usr/lib/nginx /usr/lib/nginx
 COPY --from=nginx-build /etc/nginx /etc/nginx
@@ -457,8 +420,8 @@ COPY --from=nginx-build /var/lib/nginx /var/lib/nginx
 COPY --from=nginx-build /usr/local /usr/local
 COPY --from=nginx-build /etc/ld.so.conf.d/ /etc/ld.so.conf.d/
 
-# 暴露端口
+# 暴露服务端口
 EXPOSE 80 443
 
-# 启动命令
+# 启动Nginx服务
 CMD ["sh", "-c", "nginx -g 'daemon off;'"]
