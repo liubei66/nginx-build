@@ -1,4 +1,4 @@
-FROM alpine:latest AS nginx-build
+FROM debian:bookworm-slim AS nginx-build
 
 ARG BUILD
 ARG NGINX_VERSION=1.29.4
@@ -11,143 +11,130 @@ ARG NGX_TLS_DYN_SIZE=nginx__dynamic_tls_records_1.29.2+.patch
 WORKDIR /src
 
 # 安装编译依赖
-RUN apk add --no-cache \
-        ca-certificates \
-        build-base \
-        patch \
-        cmake \
-        git \
-        libtool \
-        autoconf \
-        automake \
-        ninja \
-        zlib-dev \
-        pcre2-dev \
-        linux-headers \
-        libxml2-dev \
-        libxslt-dev \
-        perl-dev \
-        perl \
-        curl-dev \
-        geoip-dev \
-        libmaxminddb-dev \
-        libbrotli-dev \
-        libzmq-dev \
-        yaml-dev \
-        gd-dev \
-        openssl-dev \
-        luajit-dev \
-        tar-dev \
-        jansson-dev \
-        libmagic-dev \
-        go
+RUN set -eux; \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates apt-transport-https \
+        build-essential patch cmake git libtool autoconf automake \
+        ninja-build wget unzip \
+        libpcre3-dev zlib1g-dev libxslt1-dev libgd-dev libgeoip-dev \
+        libperl-dev libbrotli-dev libzmq3-dev liblua5.1-dev libyaml-dev \
+        libxml2-dev libcurl4-openssl-dev libjansson-dev libmagic-dev \
+        libtar-dev libmaxminddb-dev libjemalloc-dev libssl-dev \
+        golang-go pkg-config; \
+    rm -rf /var/lib/apt/lists/*
 
 # 编译安装 BoringSSL
-RUN (git clone --depth 1 --recursive --branch main https://boringssl.googlesource.com/boringssl /src/boringssl \
-        && cd /src/boringssl \
-        && cmake -GNinja -B build -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release \
-        && ninja -C build \
-        && mkdir -p /src/boringssl/.openssl/lib \
-        && ln -s /src/boringssl/include /src/boringssl/.openssl/include \
-        && cp /src/boringssl/build/libcrypto.a /src/boringssl/.openssl/lib/ \
-        && cp /src/boringssl/build/libssl.a /src/boringssl/.openssl/lib/)
+RUN set -eux; \
+    git clone --depth 1 --recursive --branch main https://boringssl.googlesource.com/boringssl /src/boringssl && \
+    cd /src/boringssl && \
+    cmake -GNinja -B build -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release && \
+    ninja -C build && \
+    mkdir -p /src/boringssl/.openssl/lib && \
+    ln -s /src/boringssl/include /src/boringssl/.openssl/include && \
+    cp /src/boringssl/build/libcrypto.a /src/boringssl/.openssl/lib/ && \
+    cp /src/boringssl/build/libssl.a /src/boringssl/.openssl/lib/
 
 # 安装 LuaJIT
-RUN (wget -O LuaJIT-${LUAJIT_VERSION}.tar.gz https://github.com/openresty/luajit2/archive/refs/tags/v${LUAJIT_VERSION}.tar.gz \
-        && tar -xzf LuaJIT-${LUAJIT_VERSION}.tar.gz \
-        && cd luajit2-${LUAJIT_VERSION} \
-        && make -j$(nproc) \
-        && make install \
-        && cd .. \
-        && rm -rf luajit2-${LUAJIT_VERSION} LuaJIT-${LUAJIT_VERSION}.tar.gz)
+RUN set -eux; \
+    wget -O LuaJIT-${LUAJIT_VERSION}.tar.gz https://github.com/openresty/luajit2/archive/refs/tags/v${LUAJIT_VERSION}.tar.gz && \
+    tar -xzf LuaJIT-${LUAJIT_VERSION}.tar.gz && \
+    cd luajit2-${LUAJIT_VERSION} && \
+    make -j$(nproc) && \
+    make install && \
+    cd .. && \
+    rm -rf luajit2-${LUAJIT_VERSION} LuaJIT-${LUAJIT_VERSION}.tar.gz
 
 # 编译安装 PCRE2
-RUN (wget -O pcre2-${PCRE2_VERSION}.tar.gz https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz \
-        && tar -xzf pcre2-${PCRE2_VERSION}.tar.gz \
-        && cd pcre2-${PCRE2_VERSION} \
-        && ./configure --enable-jit --enable-pcre2-16 --enable-pcre2-32 --enable-unicode --with-pic \
-        && make -j$(nproc) \
-        && make install \
-        && cd .. \
-        && rm -rf pcre2-${PCRE2_VERSION} pcre2-${PCRE2_VERSION}.tar.gz)
+RUN set -eux; \
+    wget -O pcre2-${PCRE2_VERSION}.tar.gz https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz && \
+    tar -xzf pcre2-${PCRE2_VERSION}.tar.gz && \
+    cd pcre2-${PCRE2_VERSION} && \
+    ./configure --enable-jit --enable-pcre2-16 --enable-pcre2-32 --enable-unicode --with-pic && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig && \
+    cd .. && \
+    rm -rf pcre2-${PCRE2_VERSION} pcre2-${PCRE2_VERSION}.tar.gz
 
 # 编译安装 Jemalloc
-RUN (wget -O jemalloc-${JEMALLOC_VERSION}.tar.gz https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.gz \
-        && tar -xzf jemalloc-${JEMALLOC_VERSION}.tar.gz \
-        && cd jemalloc-${JEMALLOC_VERSION} \
-        && ./configure --with-pic \
-        && make -j$(nproc) \
-        && make install \
-        && cd .. \
-        && rm -rf jemalloc-${JEMALLOC_VERSION} jemalloc-${JEMALLOC_VERSION}.tar.gz)
+RUN set -eux; \
+    wget -O jemalloc-${JEMALLOC_VERSION}.tar.gz https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.gz && \
+    tar -xzf jemalloc-${JEMALLOC_VERSION}.tar.gz && \
+    cd jemalloc-${JEMALLOC_VERSION} && \
+    ./configure --with-pic && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig && \
+    cd .. && \
+    rm -rf jemalloc-${JEMALLOC_VERSION} jemalloc-${JEMALLOC_VERSION}.tar.gz
 
 # 编译安装 QuickJS
-RUN (git clone https://github.com/bellard/quickjs /src/quickjs \
-        && cd /src/quickjs \
-        && CFLAGS='-fPIC' make libquickjs.a \
-        && cd ..)
+RUN set -eux; \
+    git clone https://github.com/bellard/quickjs /src/quickjs && \
+    cd /src/quickjs && \
+    CFLAGS='-fPIC' make libquickjs.a
 
 # 下载所有模块
-RUN (git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git /src/ngx_devel_kit \
-        && git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git /src/nginx-module-vts \
-        && git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git /src/ngx_dynamic_upstream \
-        && git clone --depth 1 --branch master https://github.com/Lax/traffic-accounting-nginx-module.git /src/traffic-accounting \
-        && git clone --depth 1 --branch master https://github.com/openresty/array-var-nginx-module.git /src/array-var \
-        && git clone --depth 1 --branch master https://github.com/google/ngx_brotli.git /src/ngx_brotli \
-        && cd /src/ngx_brotli && git submodule update --init && cd .. \
-        && git clone --depth 1 --branch master https://github.com/nginx-modules/ngx_cache_purge.git /src/ngx_cache_purge \
-        && git clone --depth 1 --branch master https://github.com/AirisX/nginx_cookie_flag_module.git /src/nginx_cookie_flag \
-        && git clone --depth 1 --branch master https://github.com/arut/nginx-dav-ext-module.git /src/nginx-dav-ext \
-        && git clone --depth 1 --branch master https://github.com/openresty/echo-nginx-module.git /src/echo \
-        && git clone --depth 1 --branch master https://github.com/openresty/encrypted-session-nginx-module.git /src/encrypted-session \
-        && git clone --depth 1 --branch master https://github.com/openresty/headers-more-nginx-module.git /src/headers-more \
-        && git clone --depth 1 --branch master https://github.com/openresty/lua-nginx-module.git /src/lua-nginx \
-        && git clone --depth 1 --branch master https://github.com/openresty/lua-upstream-nginx-module.git /src/lua-upstream \
-        && git clone --depth 1 --branch master https://github.com/openresty/redis2-nginx-module.git /src/redis2 \
-        && git clone --depth 1 --branch master https://github.com/openresty/set-misc-nginx-module.git /src/set-misc \
-        && git clone --depth 1 --branch master https://github.com/aperezdc/ngx-fancyindex.git /src/ngx-fancyindex \
-        && git clone --depth 1 --branch master https://github.com/leev/ngx_http_geoip2_module.git /src/ngx_http_geoip2_module \
-        && git clone --depth 1 --branch main https://github.com/kjdev/nginx-keyval.git /src/nginx-keyval \
-        && git clone --depth 1 --branch master https://github.com/nginx-modules/nginx-log-zmq.git /src/nginx-log-zmq \
-        && git clone --depth 1 --branch master https://github.com/nbs-system/naxsi.git /src/naxsi \
-        && git clone --depth 1 --branch master https://github.com/slact/nchan.git /src/nchan \
-        && git clone --depth 1 --branch master https://github.com/FRiCKLE/ngx_slowfs_cache.git /src/ngx_slowfs_cache \
-        && git clone --depth 1 --branch master https://github.com/fdintino/nginx-upload-module.git /src/nginx-upload \
-        && git clone --depth 1 --branch master https://github.com/masterzen/nginx-upload-progress-module.git /src/nginx-upload-progress \
-        && git clone --depth 1 --branch master https://github.com/runenyUnidex/nginx-upstream-fair.git /src/nginx-upstream-fair \
-        && git clone --depth 1 --branch master https://github.com/RekGRpth/ngx_upstream_jdomain.git /src/ngx_upstream_jdomain \
-        && git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_zstd_module.git /src/zstd-nginx \
-        && git clone --depth 1 --branch master https://github.com/arut/nginx-rtmp-module.git /src/nginx-rtmp \
-        && git clone --depth 1 --branch master https://github.com/gi0baro/nginx-upstream-dynamic-servers.git /src/nginx-upstream-dynamic-servers \
-        && git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_upstream_check_module.git /src/ngx_upstream_check \
-        && git clone --depth 1 --branch ${NJS_VERSION} https://github.com/nginx/njs.git /src/njs)
-
-# 下载并应用 upstream_check 补丁
-RUN (wget -O /tmp/upstream_check.patch https://raw.githubusercontent.com/yaoweibin/nginx_upstream_check_module/master/check_1.20.1+.patch)
+RUN set -eux; \
+    git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git /src/ngx_devel_kit && \
+    git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git /src/nginx-module-vts && \
+    git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git /src/ngx_dynamic_upstream && \
+    git clone --depth 1 --branch master https://github.com/Lax/traffic-accounting-nginx-module.git /src/traffic-accounting && \
+    git clone --depth 1 --branch master https://github.com/openresty/array-var-nginx-module.git /src/array-var && \
+    git clone --depth 1 --branch master https://github.com/google/ngx_brotli.git /src/ngx_brotli && \
+    cd /src/ngx_brotli && git submodule update --init && cd .. && \
+    git clone --depth 1 --branch master https://github.com/nginx-modules/ngx_cache_purge.git /src/ngx_cache_purge && \
+    git clone --depth 1 --branch master https://github.com/AirisX/nginx_cookie_flag_module.git /src/nginx_cookie_flag && \
+    git clone --depth 1 --branch master https://github.com/openresty/echo-nginx-module.git /src/echo && \
+    git clone --depth 1 --branch master https://github.com/openresty/encrypted-session-nginx-module.git /src/encrypted-session && \
+    git clone --depth 1 --branch master https://github.com/openresty/headers-more-nginx-module.git /src/headers-more && \
+    git clone --depth 1 --branch master https://github.com/openresty/lua-nginx-module.git /src/lua-nginx && \
+    git clone --depth 1 --branch master https://github.com/openresty/lua-upstream-nginx-module.git /src/lua-upstream && \
+    git clone --depth 1 --branch master https://github.com/openresty/redis2-nginx-module.git /src/redis2 && \
+    git clone --depth 1 --branch master https://github.com/openresty/set-misc-nginx-module.git /src/set-misc && \
+    git clone --depth 1 --branch master https://github.com/aperezdc/ngx-fancyindex.git /src/ngx-fancyindex && \
+    git clone --depth 1 --branch master https://github.com/leev/ngx_http_geoip2_module.git /src/ngx_http_geoip2_module && \
+    git clone --depth 1 --branch main https://github.com/kjdev/nginx-keyval.git /src/nginx-keyval && \
+    git clone --depth 1 --branch master https://github.com/nginx-modules/nginx-log-zmq.git /src/nginx-log-zmq && \
+    git clone --depth 1 --branch master https://github.com/nbs-system/naxsi.git /src/naxsi && \
+    git clone --depth 1 --branch master https://github.com/slact/nchan.git /src/nchan && \
+    git clone --depth 1 --branch master https://github.com/FRiCKLE/ngx_slowfs_cache.git /src/ngx_slowfs_cache && \
+    git clone --depth 1 --branch master https://github.com/fdintino/nginx-upload-module.git /src/nginx-upload && \
+    git clone --depth 1 --branch master https://github.com/masterzen/nginx-upload-progress-module.git /src/nginx-upload-progress && \
+    git clone --depth 1 --branch master https://github.com/runenyUnidex/nginx-upstream-fair.git /src/nginx-upstream-fair && \
+    git clone --depth 1 --branch master https://github.com/RekGRpth/ngx_upstream_jdomain.git /src/ngx_upstream_jdomain && \
+    git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_zstd_module.git /src/zstd-nginx && \
+    git clone --depth 1 --branch master https://github.com/arut/nginx-rtmp-module.git /src/nginx-rtmp && \
+    git clone --depth 1 --branch master https://github.com/gi0baro/nginx-upstream-dynamic-servers.git /src/nginx-upstream-dynamic-servers && \
+    git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_upstream_check_module.git /src/ngx_upstream_check && \
+    git clone --depth 1 --branch ${NJS_VERSION} https://github.com/nginx/njs.git /src/njs
 
 # 下载并编译 zstd
-RUN (mkdir -p /usr/local/zstd-pic \
-        && cd /tmp \
-        && ZSTD_VERSION="1.5.7" \
-        && wget -O zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/refs/tags/v${ZSTD_VERSION}.tar.gz \
-        && tar -xzf zstd-${ZSTD_VERSION}.tar.gz \
-        && cd zstd-${ZSTD_VERSION} \
-        && make clean \
-        && CFLAGS="-fPIC -O2" CXXFLAGS="-fPIC -O2" make -j$(nproc) PREFIX=/usr/local/zstd-pic \
-        && make PREFIX=/usr/local/zstd-pic install \
-        && cd .. \
-        && rm -rf zstd-${ZSTD_VERSION} zstd-${ZSTD_VERSION}.tar.gz)
+RUN set -eux; \
+    mkdir -p /usr/local/zstd-pic && \
+    cd /tmp && \
+    ZSTD_VERSION="1.5.7" && \
+    wget -O zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/refs/tags/v${ZSTD_VERSION}.tar.gz && \
+    tar -xzf zstd-${ZSTD_VERSION}.tar.gz && \
+    cd zstd-${ZSTD_VERSION} && \
+    make clean && \
+    CFLAGS="-fPIC -O2" CXXFLAGS="-fPIC -O2" make -j$(nproc) PREFIX=/usr/local/zstd-pic && \
+    make PREFIX=/usr/local/zstd-pic install && \
+    cd .. && \
+    rm -rf zstd-${ZSTD_VERSION} zstd-${ZSTD_VERSION}.tar.gz
 
 # 下载 Nginx 源码并应用补丁
-RUN (wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -O - | tar xzC /src \
-        && mv /src/nginx-${NGINX_VERSION} /src/nginx \
-        && wget https://raw.githubusercontent.com/nginx-modules/ngx_http_tls_dyn_size/master/${NGX_TLS_DYN_SIZE} -O /src/nginx/dynamic_tls_records.patch \
-        && cd /src/nginx \
-        && patch -p1 < dynamic_tls_records.patch)
+RUN set -eux; \
+    wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -O - | tar xzC /src && \
+    mv /src/nginx-${NGINX_VERSION} /src/nginx && \
+    wget https://raw.githubusercontent.com/nginx-modules/ngx_http_tls_dyn_size/master/${NGX_TLS_DYN_SIZE} -O /src/nginx/dynamic_tls_records.patch && \
+    cd /src/nginx && \
+    patch -p1 < dynamic_tls_records.patch
 
 # 配置并编译 Nginx
-RUN cd /src/nginx \
-    && ./configure \
+RUN cd /src/nginx && \
+    ./configure \
         --build=${BUILD} \
         --prefix=/var/lib/nginx \
         --sbin-path=/usr/sbin/nginx \
@@ -212,7 +199,6 @@ RUN cd /src/nginx \
         --add-dynamic-module=/src/ngx_brotli \
         --add-dynamic-module=/src/ngx_cache_purge \
         --add-dynamic-module=/src/nginx_cookie_flag \
-        --add-dynamic-module=/src/nginx-dav-ext \
         --add-dynamic-module=/src/echo \
         --add-dynamic-module=/src/encrypted-session \
         --add-dynamic-module=/src/ngx-fancyindex \
@@ -234,15 +220,15 @@ RUN cd /src/nginx \
         --add-dynamic-module=/src/zstd-nginx \
         --add-dynamic-module=/src/nginx-rtmp \
         --add-dynamic-module=/src/nginx-upstream-dynamic-servers \
-        --add-dynamic-module=/src/ngx_upstream_check \
-    && touch /src/boringssl/include/openssl/ssl.h \
-    && make -j "$(nproc)" \
-    && make -j "$(nproc)" install \
-    && make clean \
-    && rm -rf /src/nginx/*.patch \
-    && strip -s /usr/sbin/nginx \
-    && strip -s /usr/lib/nginx/modules/*.so \
-    && for module in /usr/lib/nginx/modules/*.so; do \
+        --add-dynamic-module=/src/ngx_upstream_check && \
+    touch /src/boringssl/include/openssl/ssl.h && \
+    make -j "$(nproc)" && \
+    make -j "$(nproc)" install && \
+    make clean && \
+    rm -rf /src/nginx/*.patch && \
+    strip -s /usr/sbin/nginx && \
+    strip -s /usr/lib/nginx/modules/*.so && \
+    for module in /usr/lib/nginx/modules/*.so; do \
          module_name=$(basename $module .so); \
          echo "load_module $module;" >$module_name.load; \
     done
