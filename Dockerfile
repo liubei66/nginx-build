@@ -126,6 +126,7 @@ RUN set -eux; \
 RUN set -eux; \
     NJS_TAR="/src/njs-${NJS_VERSION}.tar.gz"; \
     wget -O ${NJS_TAR} https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz; \
+    mkdir -p /src/modules; \
     tar -zxf ${NJS_TAR} -C /src/modules; \
     mv /src/modules/njs-${NJS_VERSION} /src/modules/njs; \
     rm -f ${NJS_TAR}; \
@@ -133,7 +134,7 @@ RUN set -eux; \
 
 # 克隆ngx_devel_kit模块
 RUN set -eux; \
-    git clone --depth 1 --c/ngx_devel_kit
+    git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git /src/ngx_devel_kit
 
 # 克隆nginx-module-vts模块
 RUN set -eux; \
@@ -337,7 +338,7 @@ RUN set -eux; \
         --with-stream_realip_module \
         --with-stream_geoip_module=dynamic \
         --with-stream_ssl_preread_module \
-        --add-dynamic-module=/src/njs/nginx \
+        --add-dynamic-module=/src/modules/njs \
         --add-dynamic-module=/src/ngx_devel_kit \
         --add-dynamic-module=/src/nginx-module-vts \
         --add-dynamic-module=/src/ngx_dynamic_upstream \
