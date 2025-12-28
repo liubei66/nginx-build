@@ -1,4 +1,6 @@
 # 全局构建参数定义
+ARG BUILD
+
 ARG NGINX_VERSION=1.29.4
 ARG NJS_VERSION=0.9.4
 ARG LUAJIT_VERSION=2.1-20250826
@@ -34,7 +36,6 @@ ARG BUILD
 
 WORKDIR /src
 
-# 安装编译依赖
 # 安装编译依赖
 RUN set -eux; \
     apk add --no-cache \
