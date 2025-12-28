@@ -105,7 +105,7 @@ RUN set -eux; \
 # 编译安装 Jemalloc
 RUN set -eux; \
     cd /tmp && \
-    wget -O jemalloc-${JEMALLOC_VERSION}.tar.gz https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.gz && \
+    wget -O jemalloc-${JEMALLOC_VERSION}.tar.gz https://github.com/jemalloc/jemalloc/archive/refs/tags/${JEMALLOC_VERSION}.tar.gz && \
     tar -xzf jemalloc-${JEMALLOC_VERSION}.tar.gz && \
     cd jemalloc-${JEMALLOC_VERSION} && \
     ./configure --with-pic && \
