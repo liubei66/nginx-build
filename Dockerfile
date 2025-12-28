@@ -8,9 +8,9 @@ ARG LUAJIT_INC=/usr/local/include/luajit-2.1
 ARG LUAJIT_LIB=/usr/local/lib
 ARG ZSTD_INC=/usr/local/zstd-pic/include
 ARG ZSTD_LIB=/usr/local/zstd-pic/lib
-ARG OPENSSL_VERSION=3.3.0-quic1
-ARG OPENSSL_URL=https://github.com/quictls/openssl/archive/refs/tags/openssl-${OPENSSL_VERSION}.tar.gz
-ARG OPENSSL_SRC_DIR=/usr/src/openssl
+ARG BORINGSSL_COMMIT=3c9d3a7a8c2b4c47e15dfe7d9411c2b258c7e498
+ARG BORINGSSL_URL=https://github.com/google/boringssl/archive/${BORINGSSL_COMMIT}.tar.gz
+ARG BORINGSSL_SRC_DIR=/usr/src/boringssl
 ARG PCRE2_VERSION=10.47
 ARG JEMALLOC_VERSION=5.3.0
 
@@ -27,9 +27,9 @@ ARG LUAJIT_INC
 ARG LUAJIT_LIB
 ARG ZSTD_INC
 ARG ZSTD_LIB
-ARG OPENSSL_VERSION
-ARG OPENSSL_URL
-ARG OPENSSL_SRC_DIR
+ARG BORINGSSL_COMMIT
+ARG BORINGSSL_URL
+ARG BORINGSSL_SRC_DIR
 ARG PCRE2_VERSION
 ARG JEMALLOC_VERSION
 
@@ -55,22 +55,21 @@ RUN set -eux; \
              ${OPENSSL_SRC_DIR} && \
     chmod -R 755 /usr/src/nginx
 
-# 编译OpenSSL
+# 编译BoringSSL
 RUN set -eux; \
-    wget -O /usr/src/openssl-${OPENSSL_VERSION}.tar.gz ${OPENSSL_URL}; \
-    tar -zxf /usr/src/openssl-${OPENSSL_VERSION}.tar.gz -C ${OPENSSL_SRC_DIR} --strip-components=1; \
-    rm -f /usr/src/openssl-${OPENSSL_VERSION}.tar.gz; \
-    cd ${OPENSSL_SRC_DIR}; \
-    ./Configure \
-        no-shared \
-        zlib \
-        -O3 \
-        enable-tls1_3 \
-        enable-ktls \
-        enable-quic \
-        no-boring-quic-api \
-        linux-x86_64; \
-    make -j$(nproc)
+    wget -O /usr/src/boringssl-${BORINGSSL_COMMIT}.tar.gz ${BORINGSSL_URL}; \
+    tar -zxf /usr/src/boringssl-${BORINGSSL_COMMIT}.tar.gz -C ${BORINGSSL_SRC_DIR} --strip-components=1; \
+    rm -f /usr/src/boringssl-${BORINGSSL_COMMIT}.tar.gz; \
+    mkdir -p ${BORINGSSL_SRC_DIR}/build; \
+    cd ${BORINGSSL_SRC_DIR}/build; \
+    cmake -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE -DCMAKE_BUILD_TYPE=Release ..; \
+    make -j$(nproc) ssl crypto; \
+    mkdir -p /usr/local/include/boringssl; \
+    cp ../include/openssl/*.h /usr/local/include/boringssl/; \
+    cp ssl/libssl.a crypto/libcrypto.a /usr/local/lib/; \
+    cd ${BORINGSSL_SRC_DIR}/util; \
+    ./generate_build_files.pl; \
+    ldconfig
 
 # 下载并解压Nginx源码
 RUN set -eux; \
@@ -368,8 +367,8 @@ RUN set -eux; \
   --with-stream_realip_module \
   --with-stream_geoip_module=dynamic \
   --with-stream_ssl_preread_module \
-  --with-cc-opt="-O3 -flto -I${LUAJIT_INC} -I${ZSTD_INC} -I${OPENSSL_SRC_DIR}/include -I/usr/include -I/usr/src/nginx/modules/quickjs -I/usr/local/include" \
-  --with-ld-opt="-L${LUAJIT_LIB} -L${ZSTD_LIB} -L${OPENSSL_SRC_DIR} -L/usr/src/nginx/modules/quickjs -L/usr/local/lib -Wl,-rpath,${LUAJIT_LIB}:${ZSTD_LIB}:/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc -Wl,-Bsymbolic-functions -flto" \
+  --with-cc-opt="-O3 -flto -I${LUAJIT_INC} -I${ZSTD_INC} -I/usr/local/include/boringssl -I/usr/include -I/usr/src/nginx/modules/quickjs -I/usr/local/include" \
+  --with-ld-opt="-L${LUAJIT_LIB} -L${ZSTD_LIB} -L/usr/local/lib -L/usr/src/nginx/modules/quickjs -L/usr/local/lib -Wl,-rpath,${LUAJIT_LIB}:${ZSTD_LIB}:/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc -Wl,-Bsymbolic-functions -flto" \
   --add-dynamic-module=../modules/njs/nginx \
   --add-dynamic-module=../modules/ngx_devel_kit \
   --add-dynamic-module=../modules/nginx-module-vts \
