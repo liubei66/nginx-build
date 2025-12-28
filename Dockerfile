@@ -11,6 +11,7 @@ ARG ZSTD_LIB=/usr/local/zstd-pic/lib
 ARG BORINGSSL_SRC_DIR=/usr/src/boringssl
 ARG PCRE2_VERSION=10.47
 ARG JEMALLOC_VERSION=5.3.0
+ARG NGX_TLS_DYN_SIZE=nginx__dynamic_tls_records_1.29.2+.patch
 
 # 构建阶段：编译Nginx及依赖模块
 FROM debian:bookworm-slim AS nginx-build
@@ -28,6 +29,7 @@ ARG ZSTD_LIB
 ARG BORINGSSL_SRC_DIR
 ARG PCRE2_VERSION
 ARG JEMALLOC_VERSION
+ARG NGX_TLS_DYN_SIZE
 
 # 设置环境变量
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
@@ -38,40 +40,36 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
 RUN set -eux; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
-    wget git gcc g++ make patch unzip libtool autoconf cmake \
+    wget git gcc g++ make patch unzip libtool autoconf cmake ninja-build \
     libpcre3-dev zlib1g-dev libxslt1-dev libgd-dev libgeoip-dev \
     libperl-dev libbrotli-dev libzmq3-dev liblua5.1-dev libyaml-dev libxml2-dev \
     libcurl4-openssl-dev libjansson-dev libmagic-dev libtar-dev libmaxminddb-dev \
     libxslt-dev libgd-dev libgeoip-dev libperl-dev libmail-dkim-perl libjwt-dev \
-    libnginx-mod-http-dav-ext libpcre2-dev libjemalloc-dev; \
+    libnginx-mod-http-dav-ext libpcre2-dev libjemalloc-dev libstdc++6; \
     apt-get purge -y libssl-dev; \
     update-ca-certificates; \
     rm -rf /var/lib/apt/lists/*; \
-    mkdir -p /usr/src/nginx /usr/src/nginx/src /usr/src/nginx/modules \
+    mkdir -p /usr/src/nginx /usr/src/nginx/modules \
              ${BORINGSSL_SRC_DIR} && \
     chmod -R 755 /usr/src/nginx
 
-# 编译安装BoringSSL
+# 编译安装BoringSSL（参照Alpine可编译版本，目录结构1:1适配）
 RUN set -eux; \
+    git clone --depth 1 --recursive --branch main https://boringssl.googlesource.com/boringssl ${BORINGSSL_SRC_DIR}; \
     cd ${BORINGSSL_SRC_DIR}; \
-    git clone --depth 1 https://github.com/google/boringssl.git .; \
-    mkdir build && cd build; \
-    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..; \
-    make -j$(nproc); \
-    cp -r ../include/openssl /usr/local/include/; \
-    cp crypto/libcrypto.a ssl/libssl.a /usr/local/lib/; \
-    cd .. && rm -rf build
+    cmake -GNinja -B build -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release; \
+    ninja -C build; \
+    mkdir -p .openssl/lib; \
+    ln -sf ${BORINGSSL_SRC_DIR}/include .openssl/include; \
+    cp build/libcrypto.a build/libssl.a .openssl/lib/; \
+    rm -rf build
 
-# 下载Nginx源码并应用BoringSSL适配补丁
+# 下载Nginx源码+TLS动态补丁+版本伪装+响应头修改（完整追加指定核心逻辑）
 RUN set -eux; \
-    wget -O /usr/src/nginx/nginx-${NGINX_VERSION}.tar.gz \
-        https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz; \
-    tar -zxf /usr/src/nginx/nginx-${NGINX_VERSION}.tar.gz -C /usr/src/nginx/src --strip-components=1; \
-    rm -f /usr/src/nginx/nginx-${NGINX_VERSION}.tar.gz; \
-    cd /usr/src/nginx/src; \
-    wget -O boringssl.patch https://raw.githubusercontent.com/kn007/patch/master/nginx_boringssl/nginx-1.25+-boringssl.patch; \
-    patch -p1 < boringssl.patch; \
-    rm -f boringssl.patch
+    wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -O - | tar xzC /usr/src/nginx; \
+    mv /usr/src/nginx/nginx-${NGINX_VERSION} /usr/src/nginx/src; \
+    wget https://raw.githubusercontent.com/nginx-modules/ngx_http_tls_dyn_size/master/${NGX_TLS_DYN_SIZE} -O /usr/src/nginx/src/dynamic_tls_records.patch; \
+    cd /usr/src/nginx/src && patch -p1 < dynamic_tls_records.patch
 
 # 下载并解压njs模块
 RUN set -eux; \
@@ -100,13 +98,7 @@ RUN set -eux; \
     wget -O pcre2-${PCRE2_VERSION}.tar.gz https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz; \
     tar -zxf pcre2-${PCRE2_VERSION}.tar.gz; \
     cd pcre2-${PCRE2_VERSION}; \
-    ./configure \
-        --prefix=/usr/local \
-        --enable-jit \
-        --enable-pcre2-16 \
-        --enable-pcre2-32 \
-        --enable-unicode \
-        --with-pic; \
+    ./configure --prefix=/usr/local --enable-jit --enable-pcre2-16 --enable-pcre2-32 --enable-unicode --with-pic; \
     make -j$(nproc); \
     make install; \
     ldconfig; \
@@ -300,8 +292,16 @@ RUN set -eux; \
   --with-perl_modules_path=/usr/lib/perl5/vendor_perl \
   --user=nginx \
   --group=nginx \
+  --with-compat \
   --with-threads \
   --with-file-aio \
+  --with-libatomic \
+  --with-pcre-jit \
+  --without-poll_module \
+  --without-select_module \
+  --with-openssl=${BORINGSSL_SRC_DIR} \
+  --with-cc-opt="-I${BORINGSSL_SRC_DIR}/.openssl/include -I${LUAJIT_INC} -I${ZSTD_INC} -I/usr/local/include -I/usr/src/nginx/modules/quickjs -Wno-error -Wno-deprecated-declarations -fPIC" \
+  --with-ld-opt="-L${BORINGSSL_SRC_DIR}/.openssl/lib -L${LUAJIT_LIB} -L${ZSTD_LIB} -L/usr/src/nginx/modules/quickjs -L/usr/local/lib -Wl,-rpath,${LUAJIT_LIB}:${ZSTD_LIB}:/usr/local/lib -lssl -lcrypto -lstdc++ -lzstd -lquickjs -lz -lpcre2-8 -ljemalloc -lpthread -Wl,-Bsymbolic-functions" \
   --with-http_ssl_module \
   --with-http_v2_module \
   --with-http_v3_module \
@@ -330,9 +330,6 @@ RUN set -eux; \
   --with-stream_realip_module \
   --with-stream_geoip_module=dynamic \
   --with-stream_ssl_preread_module \
-  --with-openssl=${BORINGSSL_SRC_DIR} \
-  --with-cc-opt="-O3 -flto -I${LUAJIT_INC} -I${ZSTD_INC} -I/usr/local/include -I/usr/src/nginx/modules/quickjs -I/usr/local/include" \
-  --with-ld-opt="-L${LUAJIT_LIB} -L${ZSTD_LIB} -L/usr/src/nginx/modules/quickjs -L/usr/local/lib -Wl,-rpath,${LUAJIT_LIB}:${ZSTD_LIB}:/usr/local/lib -lzstd -lquickjs -lz -lpcre2-8 -ljemalloc -lpthread -Wl,-Bsymbolic-functions -flto" \
   --add-dynamic-module=../modules/njs/nginx \
   --add-dynamic-module=../modules/ngx_devel_kit \
   --add-dynamic-module=../modules/nginx-module-vts \
@@ -365,6 +362,7 @@ RUN set -eux; \
   --add-dynamic-module=../modules/nginx-rtmp \
   --add-dynamic-module=../modules/nginx-upstream-dynamic-servers \
   --add-dynamic-module=../modules/ngx_upstream_check; \
+touch ${BORINGSSL_SRC_DIR}/.openssl/include/openssl/ssl.h; \
 make -j$(nproc); \
 make install; \
 /usr/sbin/nginx -V; \
@@ -381,7 +379,7 @@ FROM debian:bookworm-slim AS nginx-run
 ARG NGINX_VERSION
 
 LABEL maintainer="liubei66 <1967780821@qq.com>"
-LABEL description="Nginx ${NGINX_VERSION} with BoringSSL + custom modules + PCRE2 JIT + Jemalloc + kTLS"
+LABEL description="Nginx ${NGINX_VERSION} with BoringSSL + custom modules + PCRE2 JIT + Jemalloc + HTTP3/QUIC + TLS Dynamic Size"
 
 # 安装运行时依赖并创建系统用户
 RUN set -eux; \
@@ -389,9 +387,8 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
         libpcre3 libpcre2-8-0 zlib1g libxslt1.1 libgd3 libgeoip1 libperl5.36 \
         libbrotli1 libzmq5 liblua5.1-0 libyaml-0-2 libxml2 libcurl3-gnutls \
-        libjansson4 libmagic1 libtar0 libmaxminddb0 libjemalloc2 curl \
-        iproute2 procps lsof dnsutils net-tools less jq \
-        vim-tiny wget htop tcpdump strace rsync telnet; \
+        libjansson4 libmagic1 libtar0 libmaxminddb0 libjemalloc2 libstdc++6 \
+        iproute2 procps lsof dnsutils net-tools less jq vim-tiny wget htop; \
     update-ca-certificates; \
     rm -f /etc/apt/sources.list.d/*; \
     echo "deb https://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
@@ -420,8 +417,8 @@ COPY --from=nginx-build /var/lib/nginx /var/lib/nginx
 COPY --from=nginx-build /usr/local /usr/local
 COPY --from=nginx-build /etc/ld.so.conf.d/ /etc/ld.so.conf.d/
 
-# 暴露服务端口
-EXPOSE 80 443
+# 暴露服务端口（TCP+UDP，适配HTTP3/QUIC）
+EXPOSE 80 443 443/udp
 
 # 启动Nginx服务
 CMD ["sh", "-c", "nginx -g 'daemon off;'"]
