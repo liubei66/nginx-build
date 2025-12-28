@@ -108,9 +108,10 @@ RUN set -eux; \
     wget -O jemalloc-${JEMALLOC_VERSION}.tar.gz https://github.com/jemalloc/jemalloc/archive/refs/tags/${JEMALLOC_VERSION}.tar.gz && \
     tar -xzf jemalloc-${JEMALLOC_VERSION}.tar.gz && \
     cd jemalloc-${JEMALLOC_VERSION} && \
-    ./configure --with-pic && \
-    make -j$(nproc) && \
-    make install && \
+    ./autogen.sh; \
+    ./configure --prefix=/usr/local --with-pic; \
+    make -j$(nproc); \
+    make install; \
     ldconfig && \
     cd .. && \
     rm -rf jemalloc-${JEMALLOC_VERSION} jemalloc-${JEMALLOC_VERSION}.tar.gz
@@ -132,7 +133,7 @@ RUN set -eux; \
 
 # 克隆ngx_devel_kit模块
 RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git /src/ngx_devel_kit
+    git clone --depth 1 --c/ngx_devel_kit
 
 # 克隆nginx-module-vts模块
 RUN set -eux; \
