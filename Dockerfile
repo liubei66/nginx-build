@@ -156,7 +156,7 @@ RUN set -eux; \
         touch /var/log/nginx/access.log \
         && touch /var/log/nginx/error.log \
         && ln -sf /dev/stdout /var/log/nginx/access.log \
-        && ln -sf /dev/stderr /var/log/nginx/error.log \
+        && ln -sf /dev/stderr /var/log/nginx/error.log; \
         chown -R nginx:nginx /var/lib/nginx /run/nginx /var/log/nginx; \
         chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx
 
