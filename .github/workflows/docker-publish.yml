@@ -96,7 +96,7 @@ jobs:
           DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}
           
           # 使用buildx支持多平台构建
-          docker buildx build --platform linux/amd64,linux/arm64 \
+          docker buildx build --platform linux/amd64\
             -t $DOCKER_IMAGE:${{ env.DOCKER_TAG }} \
             -t $DOCKER_IMAGE:latest \
             --push \
