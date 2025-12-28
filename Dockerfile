@@ -72,7 +72,7 @@ RUN set -eux; \
     git clone --depth 1 --recursive --branch main https://boringssl.googlesource.com/boringssl /src/boringssl && \
     cd /src/boringssl && \
     cmake -GNinja -B build -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release && \
-    ninja -C build && \
+    ninja -C build -j$(nproc) && \
     mkdir -p /src/boringssl/.openssl/lib && \
     ln -s /src/boringssl/include /src/boringssl/.openssl/include && \
     cp /src/boringssl/build/libcrypto.a /src/boringssl/.openssl/lib/ && \
