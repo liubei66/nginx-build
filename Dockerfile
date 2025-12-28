@@ -35,6 +35,7 @@ ARG BUILD
 WORKDIR /src
 
 # 安装编译依赖
+# 安装编译依赖
 RUN set -eux; \
     apk add --no-cache \
         ca-certificates \
@@ -56,15 +57,15 @@ RUN set -eux; \
         curl-dev \
         geoip-dev \
         libmaxminddb-dev \
-        libbrotli-dev \
-        libzmq-dev \
+        brotli-dev \
+        zeromq-dev \
         yaml-dev \
         gd-dev \
         openssl-dev \
         luajit-dev \
-        tar-dev \
+        libtar-dev \
         jansson-dev \
-        libmagic-dev \
+        file-dev \
         go
 
 # 编译安装 BoringSSL
