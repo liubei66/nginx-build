@@ -68,6 +68,7 @@ RUN set -eux; \
         enable-tls1_3 \
         enable-ktls \
         enable-quic \
+        no-boring-quic-api \
         linux-x86_64; \
     make -j$(nproc)
 
