@@ -1,6 +1,5 @@
 name: Build and Push Nginx Image with Tag
 
-# 触发条件（3种场景自动执行，覆盖所有发布需求）
 on:
   push:
     branches: ['main', 'master', 'develop', 'release/*']
@@ -11,15 +10,12 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # 1. 拉取仓库代码（含Dockerfile和Tag信息）
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. 提取GitHub Tag名称（自动适配，无需手动改版本）
       - name: Extract Docker Tag from GitHub Tag
         id: extract_tag
         run: |
-          # 优先提取Release/Tag的版本号，无则用latest
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG_NAME=${GITHUB_REF#refs/tags/}
             echo "DOCKER_TAG=$TAG_NAME" >> $GITHUB_ENV
@@ -27,22 +23,19 @@ jobs:
             echo "DOCKER_TAG=latest" >> $GITHUB_ENV
           fi
 
-      # 3. 登录Docker Hub（调用已配置的密钥，无需改动）
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 4. 构建镜像（自动绑定 用户名/仓库名/版本Tag）
       - name: Build Docker Image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:${{ env.DOCKER_TAG }} .
-          # 无论什么Tag，都同步更新latest标签（必备）
-          docker tag ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:${{ env.DOCKER_TAG }} ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:latest
-
-      # 5. 推送镜像（双Tag推送：版本Tag + latest Tag）
-      - name: Push Docker Image to Docker Hub
-        run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:${{ env.DOCKER_TAG }}
-          docker push ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:latest
+          docker buildx build --platform linux/amd64 \
+            -t ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:${{ env.DOCKER_TAG }} \
+            -t ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:latest \
+            --push \
+            .
