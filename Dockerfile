@@ -126,11 +126,10 @@ RUN set -eux; \
 RUN set -eux; \
     NJS_TAR="/src/njs-${NJS_VERSION}.tar.gz"; \
     wget -O ${NJS_TAR} https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz; \
-    mkdir -p /src/njs; \
-    tar -zxf ${NJS_TAR} -C /src/njs; \
+    tar -zxf ${NJS_TAR} -C /src; \
     mv /src/njs-${NJS_VERSION} /src/njs; \
     rm -f ${NJS_TAR}; \
-    [ -d "/src/modules/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
+    [ -d "/src/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
 
 # 克隆ngx_devel_kit模块
 RUN set -eux; \
