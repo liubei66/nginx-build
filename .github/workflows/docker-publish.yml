@@ -5,12 +5,9 @@ name: Build and Push Nginx Image (Tag/Release/Branch)
 # ② 推送v开头Tag
 # ③ 多分支提交包含vX.Y.Z版本号 (新增)
 on:
-  release:
-    types: [published]
   push:
-    tags: ['v*']
     # 监听多分支，可根据需要调整分支列表
-    branches: ['main', 'master', 'develop', 'release/*']
+    branches: ['develop']
 
 jobs:
   build-and-push:
