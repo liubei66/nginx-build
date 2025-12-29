@@ -153,7 +153,7 @@ RUN set -eux; \
     mv /src/nginx-${NGINX_VERSION} /src/nginx && \
     wget https://raw.githubusercontent.com/nginx-modules/ngx_http_tls_dyn_size/master/${NGX_TLS_DYN_SIZE} -O /src/nginx/dynamic_tls_records.patch && \
     cd /src/nginx && \
-    patch -p1 < dynamic_tls_records.patch  \
+    patch -p1 < dynamic_tls_records.patch
 
 # 克隆ngx_devel_kit模块
 RUN set -eux; \
