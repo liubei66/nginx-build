@@ -271,11 +271,6 @@ RUN set -eux; \
     git clone --depth 1 --branch master https://github.com/runenyUnidex/nginx-upstream-fair.git /usr/src/nginx/modules/nginx-upstream-fair || \
     (echo "克隆nginx-upstream-fair失败，重试..." && git clone --depth 1 --branch master https://github.com/gnosek/nginx-upstream-fair.git /usr/src/nginx/modules/nginx-upstream-fair)
 
-# 克隆ngx_upstream_jdomain模块
-RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/RekGRpth/ngx_upstream_jdomain.git /usr/src/nginx/modules/ngx_upstream_jdomain || \
-    (echo "克隆ngx_upstream_jdomain失败，重试..." && git clone --depth 1 --branch master https://github.com/RekGRpth/ngx_upstream_jdomain.git /usr/src/nginx/modules/ngx_upstream_jdomain)
-
 # 克隆zstd-nginx模块
 RUN set -eux; \
     git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_zstd_module.git /usr/src/nginx/modules/zstd-nginx || \
@@ -285,11 +280,6 @@ RUN set -eux; \
 RUN set -eux; \
     git clone --depth 1 --branch master https://github.com/arut/nginx-rtmp-module.git /usr/src/nginx/modules/nginx-rtmp || \
     (echo "克隆nginx-rtmp失败，重试..." && git clone --depth 1 --branch master https://github.com/arut/nginx-rtmp-module.git /usr/src/nginx/modules/nginx-rtmp)
-
-# 克隆nginx-upstream-dynamic-servers模块
-RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/gi0baro/nginx-upstream-dynamic-servers.git /usr/src/nginx/modules/nginx-upstream-dynamic-servers || \
-    (echo "克隆nginx-upstream-dynamic-servers失败，重试..." && git clone --depth 1 --branch master https://github.com/gi0baro/nginx-upstream-dynamic-servers.git /usr/src/nginx/modules/nginx-upstream-dynamic-servers)
 
 # 克隆ngx_upstream_check模块
 RUN set -eux; \
@@ -396,10 +386,8 @@ RUN set -eux; \
   --add-dynamic-module=../modules/nginx-upload \
   --add-dynamic-module=../modules/nginx-upload-progress \
   --add-dynamic-module=../modules/nginx-upstream-fair \
-  --add-dynamic-module=../modules/ngx_upstream_jdomain \
   --add-dynamic-module=../modules/zstd-nginx \
   --add-dynamic-module=../modules/nginx-rtmp \
-  --add-dynamic-module=../modules/nginx-upstream-dynamic-servers \
   --add-dynamic-module=../modules/ngx_upstream_check; \
 make -j$(nproc); \
 make install; \
