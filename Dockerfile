@@ -1,4 +1,4 @@
-# 全局构建参数：定义核心依赖版本与路径常量
+# 定义全局版本与路径参数常量
 ARG NGINX_VERSION=1.29.4
 ARG NJS_VERSION=0.9.4
 ARG PCRE2_VERSION=10.47
@@ -13,10 +13,8 @@ ARG LUAJIT_VERSION=2.1-20250826
 ARG LUAJIT_INC=/usr/local/include/luajit-2.1
 ARG LUAJIT_LIB=/usr/local/lib
 
-# 构建阶段：基于Debian编译Nginx及所有依赖模块
-FROM debian:bookworm-slim AS nginx-build
-
-# 继承全局构建参数
+# 构建阶段：基于Alpine编译Nginx及所有依赖模块
+FROM alpine:latest AS nginx-build
 ARG NGINX_VERSION
 ARG NJS_VERSION
 ARG LUAJIT_VERSION
@@ -30,29 +28,28 @@ ARG NGX_TLS_DYN_SIZE
 ARG LUAJIT_INC
 ARG LUAJIT_LIB
 
-# 配置环境变量：指定依赖路径、编译并发数
+# 配置编译环境变量，指定依赖路径与并发编译参数
 ENV LUAJIT_INC=${LUAJIT_INC} \
     LUAJIT_LIB=${LUAJIT_LIB} \
     LD_LIBRARY_PATH=${LUAJIT_LIB}:/usr/local/lib:/usr/local/zstd-pic/lib \
     MAKEFLAGS="-j$(nproc)" \
-    DEBIAN_FRONTEND=noninteractive
+    CFLAGS="-fPIC -Os" \
+    CXXFLAGS="-fPIC -Os"
 
-# 设置工作根目录
+# 设置编译工作根目录
 WORKDIR /src
 
-# 安装编译所需的系统依赖与工具链
+# 安装编译所需系统依赖与工具链
 RUN set -eux; \
-    apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates apt-transport-https wget git gcc g++ make patch unzip libtool autoconf automake cmake ninja-build \
-    build-essential zlib1g-dev libpcre3-dev libpcre2-dev libxslt1-dev libxslt-dev libgd-dev libgeoip-dev \
-    libperl-dev libbrotli-dev libzmq3-dev liblua5.1-dev libluajit-5.1-dev libyaml-dev libxml2-dev \
-    libcurl4-openssl-dev libjansson-dev libmagic-dev libfuzzy-dev libtar-dev libmaxminddb-dev \
-    libmail-dkim-perl libjwt-dev libnginx-mod-http-dav-ext libjemalloc-dev linux-libc-dev libatomic-ops-dev libunwind-dev \
-    libssl-dev golang-go tar gzip bzip2 xz-utils; \
-    mkdir -p ${MODULE_BASE_DIR} && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apk add --no-cache \
+        ca-certificates build-base patch cmake git libtool autoconf automake ninja \
+        zlib-dev pcre2-dev linux-headers libxml2-dev libxslt-dev perl-dev \
+        curl-dev geoip-dev libmaxminddb-dev libatomic_ops-dev libunwind-dev \
+        brotli-dev zeromq-dev yaml-dev gd-dev openssl-dev luajit-dev jansson-dev \
+        file-dev libfuzzy2-dev go wget tar gzip xz; \
+    mkdir -p ${MODULE_BASE_DIR}
 
-# 编译安装BoringSSL加密库，提供HTTPS/TLS支持
+# 编译安装BoringSSL加密库，提供HTTPS/TLS/HTTP3加密能力
 RUN set -eux; \
     git clone --depth 1 --recursive --branch main https://boringssl.googlesource.com/boringssl ${BORINGSSL_SRC_DIR} && \
     cd ${BORINGSSL_SRC_DIR} && \
@@ -63,7 +60,7 @@ RUN set -eux; \
     cp ${BORINGSSL_SRC_DIR}/build/libcrypto.a ${BORINGSSL_SRC_DIR}/.openssl/lib/ && \
     cp ${BORINGSSL_SRC_DIR}/build/libssl.a ${BORINGSSL_SRC_DIR}/.openssl/lib/
 
-# 编译安装LuaJIT引擎，为Lua模块提供运行环境
+# 编译安装LuaJIT引擎，为Lua模块提供高效运行环境
 RUN set -eux; \
     LUAJIT_TAR="LuaJIT-${LUAJIT_VERSION}.tar.gz"; \
     wget -O ${LUAJIT_TAR} https://github.com/openresty/luajit2/archive/refs/tags/v${LUAJIT_VERSION}.tar.gz && \
@@ -73,7 +70,7 @@ RUN set -eux; \
     make PREFIX=/usr/local install && \
     cd /src && rm -rf ${LUAJIT_TAR} ${MODULE_BASE_DIR}/luajit
 
-# 编译安装PCRE2正则库，启用JIT加速与多字符集支持
+# 编译安装PCRE2正则库，启用JIT/多字符集/Unicode支持
 RUN set -eux; \
     cd /tmp && \
     wget -O pcre2-${PCRE2_VERSION}.tar.gz https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz && \
@@ -82,65 +79,59 @@ RUN set -eux; \
     make -j$(nproc) && make install && ldconfig && \
     cd .. && rm -rf pcre2-${PCRE2_VERSION} pcre2-${PCRE2_VERSION}.tar.gz
 
-# 编译安装Jemalloc内存分配器，优化内存管理效率
+# 编译安装Jemalloc内存分配器，优化内存管理与性能
 RUN set -eux; \
     cd /tmp && \
     wget -O jemalloc-${JEMALLOC_VERSION}.tar.gz https://github.com/jemalloc/jemalloc/archive/refs/tags/${JEMALLOC_VERSION}.tar.gz && \
-    tar -xzf jemalloc-${JEMALLOC_VERSION}.tar.gz && cd jemalloc-${JEMALLOC_VERSION} && \
-    ./autogen.sh; \
-    ./configure --prefix=/usr/local --with-pic; \
-    make -j$(nproc); \
-    make install; \
-    ldconfig && \
+    tar -zxf jemalloc-${JEMALLOC_VERSION}.tar.gz && cd jemalloc-${JEMALLOC_VERSION} && \
+    ./autogen.sh && ./configure --prefix=/usr/local --with-pic && \
+    make -j$(nproc) && make install && ldconfig && \
     cd .. && rm -rf jemalloc-${JEMALLOC_VERSION} jemalloc-${JEMALLOC_VERSION}.tar.gz
 
-# 编译安装ZSTD压缩库，提供高效的内容压缩支持
+# 编译安装ZSTD压缩库，启用fPIC编译适配动态链接
 RUN set -eux; \
     mkdir -p /usr/local/zstd-pic && cd /tmp && \
     wget -O zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/refs/tags/v${ZSTD_VERSION}.tar.gz && \
     tar -zxf zstd-${ZSTD_VERSION}.tar.gz && cd zstd-${ZSTD_VERSION} && \
-    make clean && \
-    CFLAGS="-fPIC -O2" CXXFLAGS="-fPIC -O2" make -j$(nproc) PREFIX=/usr/local/zstd-pic && \
+    make clean && CFLAGS="-fPIC -O2" CXXFLAGS="-fPIC -O2" make -j$(nproc) PREFIX=/usr/local/zstd-pic && \
     make PREFIX=/usr/local/zstd-pic install && \
     cd .. && rm -rf zstd-${ZSTD_VERSION} zstd-${ZSTD_VERSION}.tar.gz
 
-# 下载并解压njs模块，为Nginx提供JavaScript脚本能力
+# 下载解压NJS模块，为Nginx提供JavaScript扩展能力
 RUN set -eux; \
     NJS_TAR="${MODULE_BASE_DIR}/njs-${NJS_VERSION}.tar.gz"; \
     wget -O ${NJS_TAR} https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz; \
     tar -zxf ${NJS_TAR} -C ${MODULE_BASE_DIR}; \
     mv ${MODULE_BASE_DIR}/njs-${NJS_VERSION} ${MODULE_BASE_DIR}/njs; \
     rm -f ${NJS_TAR}; \
-[ -d "${MODULE_BASE_DIR}/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
+    [ -d "${MODULE_BASE_DIR}/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
 
-# 编译安装QuickJS引擎，提供轻量级JavaScript执行环境
+# 编译安装QuickJS引擎，提供轻量级JS执行环境
 RUN set -eux; \
     git clone https://github.com/bellard/quickjs ${MODULE_BASE_DIR}/quickjs && \
     cd ${MODULE_BASE_DIR}/quickjs && CFLAGS='-fPIC' make libquickjs.a
 
-# 下载Nginx源码并应用TLS动态记录补丁，优化TLS性能
+# 下载Nginx源码并应用TLS动态记录补丁，优化TLS传输性能
 RUN set -eux; \
     wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -O - | tar xzC /src && \
     mv /src/nginx-${NGINX_VERSION} /src/nginx && \
     wget -O ${NGINX_SRC_DIR}/dynamic_tls_records.patch https://raw.githubusercontent.com/nginx-modules/ngx_http_tls_dyn_size/master/${NGX_TLS_DYN_SIZE} && \
     cd ${NGINX_SRC_DIR} && patch -p1 < dynamic_tls_records.patch
 
-# 应用upstream_check模块补丁，修复编译兼容性问题
+# 应用upstream_check模块补丁，修复编译兼容性
 RUN set -eux; \
     cd ${NGINX_SRC_DIR}/src; \
     wget -O upstream_check.patch https://raw.githubusercontent.com/yaoweibin/nginx_upstream_check_module/master/check_1.20.1+.patch; \
     patch -p1 < upstream_check.patch || echo "upstream_check补丁适配警告"; \
     rm -f upstream_check.patch
 
-# 克隆所有第三方Nginx模块，扩展Nginx功能
+# 克隆所有第三方扩展模块，扩展Nginx核心功能
 RUN set -eux; mkdir -p ${MODULE_BASE_DIR} && \
     git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git ${MODULE_BASE_DIR}/ngx_devel_kit && \
     git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git ${MODULE_BASE_DIR}/ngx_dynamic_upstream && \
     git clone --depth 1 --branch master https://github.com/Lax/traffic-accounting-nginx-module.git ${MODULE_BASE_DIR}/traffic-accounting && \
     git clone --depth 1 --branch master https://github.com/openresty/array-var-nginx-module.git ${MODULE_BASE_DIR}/array-var && \
     git clone --depth 1 --branch master https://github.com/google/ngx_brotli.git ${MODULE_BASE_DIR}/ngx_brotli && \
-    git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git ${MODULE_BASE_DIR}/nginx-module-vts && \
-    git clone --depth 1 --branch master https://github.com/slact/nchan.git ${MODULE_BASE_DIR}/nchan && \
     git clone --depth 1 --branch master https://github.com/nginx-modules/ngx_cache_purge.git ${MODULE_BASE_DIR}/ngx_cache_purge && \
     git clone --depth 1 --branch master https://github.com/AirisX/nginx_cookie_flag_module.git ${MODULE_BASE_DIR}/nginx_cookie_flag && \
     git clone --depth 1 --branch master https://github.com/arut/nginx-dav-ext-module.git ${MODULE_BASE_DIR}/nginx-dav-ext && \
@@ -167,7 +158,7 @@ RUN set -eux; mkdir -p ${MODULE_BASE_DIR} && \
     git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_upstream_check_module.git ${MODULE_BASE_DIR}/ngx_upstream_check && \
     cd ${MODULE_BASE_DIR}/ngx_brotli && git submodule update --init && cd -
 
-# 配置并编译Nginx，加载所有核心模块与第三方模块
+# 配置并编译Nginx，集成所有核心模块与第三方扩展模块
 RUN set -eux; \
     cd ${NGINX_SRC_DIR} && \
     ./configure \
@@ -184,7 +175,6 @@ RUN set -eux; \
         --http-fastcgi-temp-path=/var/lib/nginx/tmp/fastcgi \
         --http-uwsgi-temp-path=/var/lib/nginx/tmp/uwsgi \
         --http-scgi-temp-path=/var/lib/nginx/tmp/scgi \
-        --with-perl_modules_path=/usr/lib/perl5/vendor_perl \
         --user=nginx \
         --group=nginx \
         --with-compat \
@@ -195,7 +185,7 @@ RUN set -eux; \
         --without-select_module \
         --with-openssl="${BORINGSSL_SRC_DIR}" \
         --with-cc-opt="-I${LUAJIT_INC} -I${BORINGSSL_SRC_DIR}/.openssl/include -I/usr/local/zstd-pic/include -I/usr/local/include -I${MODULE_BASE_DIR}/quickjs -Wno-error -Wno-deprecated-declarations -fPIC" \
-        --with-ld-opt="-L${LUAJIT_LIB} -L${BORINGSSL_SRC_DIR}/.openssl/lib -L/usr/local/lib -L/usr/local/zstd-pic/lib -L${MODULE_BASE_DIR}/quickjs -Wl,-rpath,${LUAJIT_LIB}:/usr/local/lib:/usr/local/zstd-pic/lib -lssl -lcrypto -lstdc++ -lzstd -lquickjs -lluajit-5.1 -lz -lpcre2-8 -ljemalloc -lpthread -Wl,-Bsymbolic-functions" \
+        --with-ld-opt="-L${LUAJIT_LIB} -L${BORINGSSL_SRC_DIR}/.openssl/lib -L/usr/local/lib -L/usr/local/zstd-pic/lib -L${MODULE_BASE_DIR}/quickjs -Wl,-rpath,${LUAJIT_LIB}:/usr/local/lib:/usr/local/zstd-pic/lib -lssl -lcrypto -lstdc++ -lzstd -lquickjs -lluajit-5.1 -lz -lpcre2-8 -ljemalloc -lpthread" \
         --with-http_ssl_module \
         --with-http_v2_module \
         --with-http_v3_module \
@@ -216,7 +206,6 @@ RUN set -eux; \
         --with-http_degradation_module \
         --with-http_slice_module \
         --with-http_stub_status_module \
-        --with-http_perl_module=dynamic \
         --with-mail=dynamic \
         --with-mail_ssl_module \
         --with-stream=dynamic \
@@ -243,8 +232,6 @@ RUN set -eux; \
         --add-dynamic-module=${MODULE_BASE_DIR}/lua-nginx \
         --add-dynamic-module=${MODULE_BASE_DIR}/lua-upstream \
         --add-dynamic-module=${MODULE_BASE_DIR}/naxsi/naxsi_src \
-        --add-dynamic-module=${MODULE_BASE_DIR}/nchan \
-        --add-dynamic-module=${MODULE_BASE_DIR}/nginx-module-vts \
         --add-dynamic-module=${MODULE_BASE_DIR}/redis2 \
         --add-dynamic-module=${MODULE_BASE_DIR}/set-misc \
         --add-dynamic-module=${MODULE_BASE_DIR}/ngx_slowfs_cache \
@@ -257,69 +244,48 @@ RUN set -eux; \
         --add-dynamic-module=${MODULE_BASE_DIR}/nginx-upstream-dynamic-servers \
         --add-dynamic-module=${MODULE_BASE_DIR}/ngx_upstream_check && \
     touch ${BORINGSSL_SRC_DIR}/include/openssl/ssl.h && \
-    make -j "$(nproc)" && \
-    make -j "$(nproc)" install && \
-    make clean && \
-    rm -rf ${NGINX_SRC_DIR}/*.patch && \
-    strip -s /usr/sbin/nginx && \
-    strip -s /usr/lib/nginx/modules/*.so && \
+    make -j "$(nproc)" && make -j "$(nproc)" install && \
+    make clean && rm -rf ${NGINX_SRC_DIR}/*.patch && \
+    strip -s /usr/sbin/nginx && strip -s /usr/lib/nginx/modules/*.so && \
     for module in /usr/lib/nginx/modules/*.so; do \
          module_name=$(basename $module .so); \
          echo "load_module $module;" >$module_name.load; \
     done
 
-# 运行阶段：构建精简的Debian生产镜像
-FROM debian:bookworm-slim AS nginx-run
-
-# 继承Nginx版本参数用于镜像标签
+# 运行阶段：构建精简Alpine生产镜像
+FROM alpine:latest AS nginx-run
 ARG NGINX_VERSION
 
-# 设置镜像元信息，标识镜像功能与维护者
+# 设置镜像元信息标识
 LABEL maintainer="liubei66 <1967780821@qq.com>"
-LABEL description="Nginx ${NGINX_VERSION} with BoringSSL + custom modules + PCRE2 JIT + Jemalloc + HTTP3/QUIC + TLS Dynamic Size (Debian Build)"
+LABEL description="Nginx ${NGINX_VERSION} with BoringSSL + custom modules + PCRE2 JIT + Jemalloc + HTTP3/QUIC + TLS Dynamic Size (Alpine)"
 
-# 安装运行时依赖，配置系统环境与用户权限
+# 安装运行时依赖，配置用户与目录权限
 RUN set -eux; \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        ca-certificates apt-transport-https libpcre3 libpcre2-8-0 zlib1g libxslt1.1 libgd3 \
-        libgeoip1 libperl5.36 libbrotli1 libzmq5 libluajit-5.1-2 libyaml-0-2 libxml2 \
-        libcurl4-openssl-dev libjansson4 libmagic1 libmaxminddb0 libjemalloc2 libstdc++6 \
-        iproute2 procps curl lsof dnsutils net-tools less jq vim wget htop libatomic1; \
+    apk add --no-cache \
+        ca-certificates zlib pcre2 libxslt gd geoip libmaxminddb brotli zeromq luajit yaml \
+        libcurl jansson file libmagic jemalloc libstdc++ libatomic iproute2 procps curl lsof \
+        bind-tools net-tools less jq vim wget htop; \
     update-ca-certificates; \
-    rm -f /etc/apt/sources.list.d/*; \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm-backports main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    echo "deb https://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    rm -rf /var/lib/apt/lists/* ; \
-    groupadd -r nginx && useradd -r -g nginx -s /usr/sbin/nologin -d /var/lib/nginx nginx; \
-    mkdir -p \
-        /var/lib/nginx/tmp/client_body \
-        /var/lib/nginx/tmp/proxy \
-        /var/lib/nginx/tmp/fastcgi \
-        /var/lib/nginx/tmp/uwsgi \
-        /var/lib/nginx/tmp/scgi \
-        /run/nginx \
-        /etc/nginx/conf.d \
-        /var/log/nginx; \
+    addgroup -g 999 -S nginx && adduser -S -D -H -u 999 -h /var/lib/nginx -s /sbin/nologin -G nginx nginx; \
+    mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi \
+        /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi /run/nginx /etc/nginx/conf.d /var/log/nginx; \
     chown -R nginx:nginx /var/lib/nginx /run/nginx /var/log/nginx; \
-    chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx
+    chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx; \
+    # 配置动态库加载路径并生效
+    RUN echo "/usr/local/lib" >> /etc/ld-musl-x86_64.path && \
+    echo "/usr/local/zstd-pic/lib" >> /etc/ld-musl-x86_64.path && ldconfig
 
-# 从编译阶段复制Nginx编译产物到运行镜像
+# 从编译阶段拷贝Nginx产物与依赖库
 COPY --from=nginx-build /usr/sbin/nginx /usr/sbin/nginx
 COPY --from=nginx-build /usr/lib/nginx /usr/lib/nginx
 COPY --from=nginx-build /etc/nginx /etc/nginx
 COPY --from=nginx-build /var/lib/nginx /var/lib/nginx
 COPY --from=nginx-build /usr/local /usr/local
 
-# 配置动态库加载路径，确保系统能识别自定义编译的依赖库
-RUN echo "/usr/local/lib" >> /etc/ld.so.conf.d/nginx.conf && \
-    echo "/usr/local/zstd-pic/lib" >> /etc/ld.so.conf.d/nginx.conf && \
-    ldconfig
 
-# 暴露Nginx服务端口，包括TCP与UDP（适配HTTP3/QUIC协议）
+# 暴露服务端口，含TCP/UDP适配HTTP3
 EXPOSE 80 443 443/udp
 
-# 前台启动Nginx服务，确保容器常驻运行
+# 前台启动Nginx服务，保证容器常驻
 CMD ["sh", "-c", "nginx -g 'daemon off;'"]
