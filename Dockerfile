@@ -267,7 +267,7 @@ RUN set -eux; \
         libcurl jansson file libmagic jemalloc libstdc++ libatomic iproute2 procps curl lsof \
         bind-tools net-tools less jq vim wget htop; \
     update-ca-certificates; \
-    addgroup -g 999 -S nginx && adduser -S -D -H -u 999 -h /var/lib/nginx -s /sbin/nologin -G nginx nginx; \
+    addgroup -g 1001 -S nginx && adduser -S -D -H -u 1001 -h /var/lib/nginx -s /sbin/nologin -G nginx nginx; \
     mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi \
         /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi /run/nginx /etc/nginx/conf.d /var/log/nginx; \
     chown -R nginx:nginx /var/lib/nginx /run/nginx /var/log/nginx; \
