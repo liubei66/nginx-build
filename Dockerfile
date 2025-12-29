@@ -9,6 +9,9 @@ ARG BORINGSSL_SRC_DIR=/usr/src/boringssl
 ARG MODULE_BASE_DIR=/src/modules
 ARG NGINX_SRC_DIR=/src/nginx
 ARG NGX_TLS_DYN_SIZE=nginx__dynamic_tls_records_1.29.2+.patch
+ARG LUAJIT_INC=/usr/local/include/luajit-2.1
+ARG LUAJIT_LIB=/usr/local/lib
+
 
 # 构建阶段：编译Nginx及所有依赖、模块
 FROM alpine:latest AS nginx-build
@@ -24,6 +27,8 @@ ARG BORINGSSL_SRC_DIR
 ARG MODULE_BASE_DIR
 ARG NGINX_SRC_DIR
 ARG NGX_TLS_DYN_SIZE
+ARG LUAJIT_INC=
+ARG LUAJIT_LIB
 
 # 设置工作根目录
 WORKDIR /src
@@ -178,8 +183,8 @@ RUN set -eux; \
         --without-poll_module \
         --without-select_module \
         --with-openssl="${BORINGSSL_SRC_DIR}" \
-        --with-cc-opt="-I${BORINGSSL_SRC_DIR}/.openssl/include -I/usr/local/include/luajit-2.1 -I/usr/local/zstd-pic/include -I/usr/local/include -I${MODULE_BASE_DIR}/quickjs -Wno-error -Wno-deprecated-declarations -fPIC" \
-        --with-ld-opt="-L${BORINGSSL_SRC_DIR}/.openssl/lib -L/usr/local/lib -L/usr/local/zstd-pic/lib -L${MODULE_BASE_DIR}/quickjs -L/usr/local/lib -Wl,-rpath,/usr/local/lib:/usr/local/zstd-pic/lib:/usr/local/lib -lssl -lcrypto -lstdc++ -lzstd -lquickjs -lz -lpcre2-8 -ljemalloc -lpthread -Wl,-Bsymbolic-functions" \
+        --with-cc-opt="-I${LUAJIT_INC} -I${BORINGSSL_SRC_DIR}/.openssl/include -I/usr/local/zstd-pic/include -I/usr/local/include -I${MODULE_BASE_DIR}/quickjs -Wno-error -Wno-deprecated-declarations -fPIC" \
+        --with-ld-opt="-L${LUAJIT_LIB} -L${BORINGSSL_SRC_DIR}/.openssl/lib -L/usr/local/lib -L/usr/local/zstd-pic/lib -L${MODULE_BASE_DIR}/quickjs -Wl,-rpath,${LUAJIT_LIB}:/usr/local/lib:/usr/local/zstd-pic/lib -lssl -lcrypto -lstdc++ -lzstd -lquickjs -lluajit-5.1 -lz -lpcre2-8 -ljemalloc -lpthread -Wl,-Bsymbolic-functions" \
         --with-http_ssl_module \
         --with-http_v2_module \
         --with-http_v3_module \
