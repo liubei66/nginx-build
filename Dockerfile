@@ -271,10 +271,8 @@ RUN set -eux; \
     mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi \
         /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi /run/nginx /etc/nginx/conf.d /var/log/nginx; \
     chown -R nginx:nginx /var/lib/nginx /run/nginx /var/log/nginx; \
-    chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx; \
-    # 配置动态库加载路径并生效
-    echo "/usr/local/lib" >> /etc/ld-musl-x86_64.path && \
-    echo "/usr/local/zstd-pic/lib" >> /etc/ld-musl-x86_64.path && ldconfig
+    chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx
+
 
 # 从编译阶段拷贝Nginx产物与依赖库
 COPY --from=nginx-build /usr/sbin/nginx /usr/sbin/nginx
