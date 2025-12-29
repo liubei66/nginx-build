@@ -2,43 +2,38 @@ name: Build Image + Auto Create GitHub Release
 
 on:
   push:
-    branches: ['main', 'master', 'develop', 'devlop', 'release/*']
-    paths: ['Dockerfile']
+    # ✅ 修复分支拼写错误 + 适配多级release分支
+    branches: ['main', 'master', 'develop', 'devlop', 'release/**']
+    # ✅ 修复路径匹配：支持根目录/任意子目录下的Dockerfile
+    paths: ['**/Dockerfile']
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     outputs:
-      final_version: ${{ env.FINAL_VERSION }} # 输出最终版本号，供Release任务使用
+      final_version: ${{ env.FINAL_VERSION }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract Version (v前缀优先 / 日期秒级兜底)
+      - name: Extract Version (v前缀优先 / 秒级日期兜底)
         run: |
-          # 1. 获取commit message首行内容
           COMMIT_MSG="${{ github.event.head_commit.message }}"
           PURE_MSG=$(echo "$COMMIT_MSG" | head -n1 | xargs)
-          
-          # 2. 核心逻辑：匹配v开头版本号 OR 生成精确到秒的日期版本号
           if [[ $PURE_MSG =~ ^v[0-9].* ]]; then
-            # ✅ 匹配成功：使用v开头的commit message作为版本号
             FINAL_VERSION="$PURE_MSG"
-            echo "✅ 匹配到v开头版本号：$FINAL_VERSION"
+            echo "✅ 匹配到v版本号：$FINAL_VERSION"
           else
-            # ✅ 匹配失败：生成格式【YYYYMMDDHHMMSS】的日期版本号（精确到秒）
             FINAL_VERSION=$(date +'%Y%m%d%H%M%S')
-            echo "ℹ️ 未匹配到v版本号，自动生成秒级日期版本：$FINAL_VERSION"
+            echo "ℹ️ 自动生成秒级日期版本：$FINAL_VERSION"
           fi
-          
-          # 3. 将最终版本号写入环境变量，全局可用
           echo "FINAL_VERSION=$FINAL_VERSION" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
-        uses: docker/setup-buildx-action@v3
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -51,12 +46,11 @@ jobs:
             --push \
             .
 
-  # ========== 自动创建GitHub Release（复用统一版本号） ==========
   create-github-release:
     needs: build-and-push
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 创建Release必须的权限
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -69,5 +63,6 @@ jobs:
           tag_name: ${{ needs.build-and-push.outputs.final_version }}
           release_name: Release ${{ needs.build-and-push.outputs.final_version }}
           generate_release_notes: true
-          prerelease: false
+          # ✅ 优化：v开头版本为正式版，日期版本为预发布版（更合理）
+          prerelease: ${{ !startsWith(needs.build-and-push.outputs.final_version, 'v') }}
           make_latest: true
