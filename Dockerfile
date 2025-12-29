@@ -127,8 +127,8 @@ RUN set -eux; \
     NJS_TAR="/src/njs-${NJS_VERSION}.tar.gz"; \
     wget -O ${NJS_TAR} https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz; \
     mkdir -p /src/modules; \
-    tar -zxf ${NJS_TAR} -C /src/modules; \
-    mv /src/modules/njs-${NJS_VERSION} /src/modules/njs; \
+    tar -zxf ${NJS_TAR} -C /src/njs; \
+    mv /src/njs-${NJS_VERSION} /src/njs; \
     rm -f ${NJS_TAR}; \
     [ -d "/src/modules/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
 
@@ -337,7 +337,7 @@ RUN set -eux; \
         --with-stream_realip_module \
         --with-stream_geoip_module=dynamic \
         --with-stream_ssl_preread_module \
-        --add-dynamic-module=/src/modules/njs \
+        --add-dynamic-module=/src/njs/nginx \
         --add-dynamic-module=/src/ngx_devel_kit \
         --add-dynamic-module=/src/nginx-module-vts \
         --add-dynamic-module=/src/ngx_dynamic_upstream \
