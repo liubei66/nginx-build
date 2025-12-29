@@ -95,7 +95,7 @@ RUN set -eux; \
     tar -zxf ${NJS_TAR} -C ${MODULE_BASE_DIR}; \
     mv ${MODULE_BASE_DIR}/njs-${NJS_VERSION} ${MODULE_BASE_DIR}/njs; \
     rm -f ${NJS_TAR}; \
-[ -d "/usr/src/nginx/modules/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
+[ -d "${MODULE_BASE_DIR}/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
 
 # 编译安装 QuickJS 引擎
 RUN set -eux; \
