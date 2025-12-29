@@ -458,7 +458,7 @@ COPY --from=nginx-build /usr/local /usr/local
 COPY --from=nginx-build /etc/ld.so.conf.d/ /etc/ld.so.conf.d/
 
 # 暴露端口
-EXPOSE 80 443
+EXPOSE 80 443 443/udp
 
 # 启动命令
 CMD ["sh", "-c", "nginx -g 'daemon off;'"]
