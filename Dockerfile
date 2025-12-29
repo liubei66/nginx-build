@@ -150,11 +150,6 @@ RUN set -eux; \
     git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git /usr/src/nginx/modules/nginx-module-vts || \
     (echo "克隆nginx-module-vts失败，重试..." && git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git /usr/src/nginx/modules/nginx-module-vts)
 
-# 克隆ngx_dynamic_upstream模块
-RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git /usr/src/nginx/modules/ngx_dynamic_upstream || \
-    (echo "克隆ngx_dynamic_upstream失败，重试..." && git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git /usr/src/nginx/modules/ngx_dynamic_upstream)
-
 # 克隆traffic-accounting模块
 RUN set -eux; \
     git clone --depth 1 --branch master https://github.com/Lax/traffic-accounting-nginx-module.git /usr/src/nginx/modules/traffic-accounting || \
@@ -250,11 +245,6 @@ RUN set -eux; \
 RUN set -eux; \
     git clone --depth 1 --branch master https://github.com/slact/nchan.git /usr/src/nginx/modules/nchan || \
     (echo "克隆nchan失败，重试..." && git clone --depth 1 --branch master https://github.com/slact/nchan.git /usr/src/nginx/modules/nchan)
-
-# 克隆ngx_slowfs_cache模块
-RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/FRiCKLE/ngx_slowfs_cache.git /usr/src/nginx/modules/ngx_slowfs_cache || \
-    (echo "克隆ngx_slowfs_cache失败，重试..." && git clone --depth 1 --branch master https://github.com/FRiCKLE/ngx_slowfs_cache.git /usr/src/nginx/modules/ngx_slowfs_cache)
 
 # 克隆nginx-upload模块
 RUN set -eux; \
@@ -362,11 +352,9 @@ RUN set -eux; \
   --add-dynamic-module=../modules/njs/nginx \
   --add-dynamic-module=../modules/ngx_devel_kit \
   --add-dynamic-module=../modules/nginx-module-vts \
-  --add-dynamic-module=../modules/ngx_dynamic_upstream \
   --add-dynamic-module=../modules/traffic-accounting \
   --add-dynamic-module=../modules/array-var \
   --add-dynamic-module=../modules/ngx_brotli \
-  --add-dynamic-module=../modules/ngx_cache_purge \
   --add-dynamic-module=../modules/nginx_cookie_flag \
   --add-dynamic-module=../modules/nginx-dav-ext \
   --add-dynamic-module=../modules/echo \
@@ -382,7 +370,6 @@ RUN set -eux; \
   --add-dynamic-module=../modules/nchan \
   --add-dynamic-module=../modules/redis2 \
   --add-dynamic-module=../modules/set-misc \
-  --add-dynamic-module=../modules/ngx_slowfs_cache \
   --add-dynamic-module=../modules/nginx-upload \
   --add-dynamic-module=../modules/nginx-upload-progress \
   --add-dynamic-module=../modules/nginx-upstream-fair \
