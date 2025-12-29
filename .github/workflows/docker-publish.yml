@@ -1,25 +1,13 @@
 name: Build and Push Nginx Image (Tag/Release/Branch)
 
-# ✅ 触发条件：
-# ① 发布Release 
-# ② 推送v开头Tag
-# ③ 多分支提交包含vX.Y.Z版本号 (新增)
 on:
   push:
-    # 监听多分支，可根据需要调整分支列表
-    branches: ['develop']
+    branches: ['main', 'master', 'develop', 'release/*']
+    paths: ['Dockerfile']
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    
-    # ✅ 仅当是release、tag或commit包含版本号时运行 (避免非版本提交触发)
-    if: |
-      github.event_name == 'release' || 
-      startsWith(github.ref, 'refs/tags/v') || 
-      contains(github.event.head_commit.message, 'v') && 
-      contains(github.event.head_commit.message, '.') && 
-      !startsWith(github.event.head_commit.message, 'Merge')
     
     steps:
       - name: Checkout code
