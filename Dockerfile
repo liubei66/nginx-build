@@ -31,7 +31,6 @@ ARG BORINGSSL_SRC_DIR
 ARG PCRE2_VERSION
 ARG JEMALLOC_VERSION
 ARG NGX_TLS_DYN_SIZE
-ARG BUILD
 
 WORKDIR /src
 
@@ -57,6 +56,8 @@ RUN set -eux; \
         curl-dev \
         geoip-dev \
         libmaxminddb-dev \
+        libatomic_ops-dev \
+        libunwind-dev \
         brotli-dev \
         zeromq-dev \
         yaml-dev \
@@ -65,6 +66,7 @@ RUN set -eux; \
         luajit-dev \
         jansson-dev \
         file-dev \
+        libfuzzy2-dev\
         go
 
 # 编译安装 BoringSSL
@@ -116,6 +118,20 @@ RUN set -eux; \
     cd .. && \
     rm -rf jemalloc-${JEMALLOC_VERSION} jemalloc-${JEMALLOC_VERSION}.tar.gz
 
+# 下载并编译 zstd
+RUN set -eux; \
+    mkdir -p /usr/local/zstd-pic && \
+    cd /tmp && \
+    ZSTD_VERSION="1.5.7" && \
+    wget -O zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/refs/tags/v${ZSTD_VERSION}.tar.gz && \
+    tar -xzf zstd-${ZSTD_VERSION}.tar.gz && \
+    cd zstd-${ZSTD_VERSION} && \
+    make clean && \
+    CFLAGS="-fPIC -O2" CXXFLAGS="-fPIC -O2" make -j$(nproc) PREFIX=/usr/local/zstd-pic && \
+    make PREFIX=/usr/local/zstd-pic install && \
+    cd .. && \
+    rm -rf zstd-${ZSTD_VERSION} zstd-${ZSTD_VERSION}.tar.gz
+
 # 编译安装 QuickJS
 RUN set -eux; \
     git clone https://github.com/bellard/quickjs /src/quickjs && \
@@ -130,6 +146,14 @@ RUN set -eux; \
     mv /src/njs-${NJS_VERSION} /src/njs; \
     rm -f ${NJS_TAR}; \
     [ -d "/src/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
+
+# 下载 Nginx 源码并应用补丁
+RUN set -eux; \
+    wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -O - | tar xzC /src && \
+    mv /src/nginx-${NGINX_VERSION} /src/nginx && \
+    wget https://raw.githubusercontent.com/nginx-modules/ngx_http_tls_dyn_size/master/${NGX_TLS_DYN_SIZE} -O /src/nginx/dynamic_tls_records.patch && \
+    cd /src/nginx && \
+    patch -p1 < dynamic_tls_records.patch  \
 
 # 克隆ngx_devel_kit模块
 RUN set -eux; \
@@ -256,28 +280,6 @@ RUN set -eux; \
 RUN set -eux; \
     git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_upstream_check_module.git /src/ngx_upstream_check
 
-# 下载并编译 zstd
-RUN set -eux; \
-    mkdir -p /usr/local/zstd-pic && \
-    cd /tmp && \
-    ZSTD_VERSION="1.5.7" && \
-    wget -O zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/refs/tags/v${ZSTD_VERSION}.tar.gz && \
-    tar -xzf zstd-${ZSTD_VERSION}.tar.gz && \
-    cd zstd-${ZSTD_VERSION} && \
-    make clean && \
-    CFLAGS="-fPIC -O2" CXXFLAGS="-fPIC -O2" make -j$(nproc) PREFIX=/usr/local/zstd-pic && \
-    make PREFIX=/usr/local/zstd-pic install && \
-    cd .. && \
-    rm -rf zstd-${ZSTD_VERSION} zstd-${ZSTD_VERSION}.tar.gz
-
-# 下载 Nginx 源码并应用补丁
-RUN set -eux; \
-    wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -O - | tar xzC /src && \
-    mv /src/nginx-${NGINX_VERSION} /src/nginx && \
-    wget https://raw.githubusercontent.com/nginx-modules/ngx_http_tls_dyn_size/master/${NGX_TLS_DYN_SIZE} -O /src/nginx/dynamic_tls_records.patch && \
-    cd /src/nginx && \
-    patch -p1 < dynamic_tls_records.patch
-
 # 配置并编译 Nginx
 RUN set -eux; \
     cd /src/nginx && \
@@ -301,7 +303,6 @@ RUN set -eux; \
         --with-compat \
         --with-threads \
         --with-file-aio \
-        --with-libatomic \
         --with-pcre-jit \
         --without-poll_module \
         --without-select_module \
