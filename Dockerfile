@@ -134,6 +134,7 @@ RUN set -eux; \
 RUN set -eux; mkdir -p ${MODULE_BASE_DIR} && \
     git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git ${MODULE_BASE_DIR}/ngx_devel_kit && \
     #git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git ${MODULE_BASE_DIR}/nginx-module-vts && \
+    #git clone --depth 1 --branch master https://github.com/slact/nchan.git ${MODULE_BASE_DIR}/nchan && \
     git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git ${MODULE_BASE_DIR}/ngx_dynamic_upstream && \
     git clone --depth 1 --branch master https://github.com/Lax/traffic-accounting-nginx-module.git ${MODULE_BASE_DIR}/traffic-accounting && \
     git clone --depth 1 --branch master https://github.com/openresty/array-var-nginx-module.git ${MODULE_BASE_DIR}/array-var && \
@@ -153,7 +154,6 @@ RUN set -eux; mkdir -p ${MODULE_BASE_DIR} && \
     git clone --depth 1 --branch main https://github.com/kjdev/nginx-keyval.git ${MODULE_BASE_DIR}/nginx-keyval && \
     git clone --depth 1 --branch master https://github.com/nginx-modules/nginx-log-zmq.git ${MODULE_BASE_DIR}/nginx-log-zmq && \
     git clone --depth 1 --branch master https://github.com/nbs-system/naxsi.git ${MODULE_BASE_DIR}/naxsi && \
-    git clone --depth 1 --branch master https://github.com/slact/nchan.git ${MODULE_BASE_DIR}/nchan && \
     git clone --depth 1 --branch master https://github.com/FRiCKLE/ngx_slowfs_cache.git ${MODULE_BASE_DIR}/ngx_slowfs_cache && \
     git clone --depth 1 --branch master https://github.com/fdintino/nginx-upload-module.git ${MODULE_BASE_DIR}/nginx-upload && \
     git clone --depth 1 --branch master https://github.com/masterzen/nginx-upload-progress-module.git ${MODULE_BASE_DIR}/nginx-upload-progress && \
@@ -225,6 +225,7 @@ RUN set -eux; \
         --add-dynamic-module=${MODULE_BASE_DIR}/njs/nginx \
         --add-dynamic-module=${MODULE_BASE_DIR}/ngx_devel_kit \
         #--add-dynamic-module=${MODULE_BASE_DIR}/nginx-module-vts \
+        #--add-dynamic-module=${MODULE_BASE_DIR}/nchan \
         --add-dynamic-module=${MODULE_BASE_DIR}/ngx_dynamic_upstream \
         --add-dynamic-module=${MODULE_BASE_DIR}/traffic-accounting \
         --add-dynamic-module=${MODULE_BASE_DIR}/array-var \
@@ -242,7 +243,6 @@ RUN set -eux; \
         --add-dynamic-module=${MODULE_BASE_DIR}/lua-nginx \
         --add-dynamic-module=${MODULE_BASE_DIR}/lua-upstream \
         --add-dynamic-module=${MODULE_BASE_DIR}/naxsi/naxsi_src \
-        --add-dynamic-module=${MODULE_BASE_DIR}/nchan \
         --add-dynamic-module=${MODULE_BASE_DIR}/redis2 \
         --add-dynamic-module=${MODULE_BASE_DIR}/set-misc \
         --add-dynamic-module=${MODULE_BASE_DIR}/ngx_slowfs_cache \
