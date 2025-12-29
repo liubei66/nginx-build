@@ -68,9 +68,6 @@ RUN set -eux; \
     mv ${MODULE_BASE_DIR}/luajit2-${LUAJIT_VERSION} ${MODULE_BASE_DIR}/luajit && \
     cd ${MODULE_BASE_DIR}/luajit && \
     make PREFIX=/usr/local install && \
-    echo "${LUAJIT_LIB}" > /etc/ld.so.conf.d/luajit.conf && \
-    # 更新动态链接缓存，立即生效
-    ldconfig && \
     # 清理编译残留，精简镜像
     cd /src && rm -rf ${LUAJIT_TAR} ${MODULE_BASE_DIR}/luajit
 
