@@ -43,11 +43,12 @@ WORKDIR /src
 # 安装编译所需的系统依赖与工具链
 RUN set -eux; \
     apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates build-essential patch cmake git libtool autoconf automake ninja-build \
-        zlib1g-dev libpcre2-dev linux-libc-dev libxml2-dev libxslt1-dev perl-dev \
-        libcurl4-openssl-dev libgeoip-dev libmaxminddb-dev libatomic-ops-dev libunwind-dev \
-        libbrotli-dev libzmq3-dev libyaml-dev libgd-dev libssl-dev libluajit-5.1-dev libjansson-dev \
-        libmagic-dev libfuzzy-dev golang-go wget tar gzip bzip2 xz-utils; \
+    ca-certificates apt-transport-https wget git gcc g++ make patch unzip libtool autoconf automake cmake ninja-build \
+    build-essential zlib1g-dev libpcre3-dev libpcre2-dev libxslt1-dev libxslt-dev libgd-dev libgeoip-dev \
+    libperl-dev libbrotli-dev libzmq3-dev liblua5.1-dev libluajit-5.1-dev libyaml-dev libxml2-dev \
+    libcurl4-openssl-dev libjansson-dev libmagic-dev libfuzzy-dev libtar-dev libmaxminddb-dev \
+    libmail-dkim-perl libjwt-dev libnginx-mod-http-dav-ext libjemalloc-dev linux-libc-dev libatomic-ops-dev libunwind-dev \
+    libssl-dev golang-go tar gzip bzip2 xz-utils; \
     mkdir -p ${MODULE_BASE_DIR} && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -138,6 +139,8 @@ RUN set -eux; mkdir -p ${MODULE_BASE_DIR} && \
     git clone --depth 1 --branch master https://github.com/Lax/traffic-accounting-nginx-module.git ${MODULE_BASE_DIR}/traffic-accounting && \
     git clone --depth 1 --branch master https://github.com/openresty/array-var-nginx-module.git ${MODULE_BASE_DIR}/array-var && \
     git clone --depth 1 --branch master https://github.com/google/ngx_brotli.git ${MODULE_BASE_DIR}/ngx_brotli && \
+    git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git ${MODULE_BASE_DIR}/nginx-module-vts && \
+    git clone --depth 1 --branch master https://github.com/slact/nchan.git ${MODULE_BASE_DIR}/nchan && \
     git clone --depth 1 --branch master https://github.com/nginx-modules/ngx_cache_purge.git ${MODULE_BASE_DIR}/ngx_cache_purge && \
     git clone --depth 1 --branch master https://github.com/AirisX/nginx_cookie_flag_module.git ${MODULE_BASE_DIR}/nginx_cookie_flag && \
     git clone --depth 1 --branch master https://github.com/arut/nginx-dav-ext-module.git ${MODULE_BASE_DIR}/nginx-dav-ext && \
@@ -240,6 +243,8 @@ RUN set -eux; \
         --add-dynamic-module=${MODULE_BASE_DIR}/lua-nginx \
         --add-dynamic-module=${MODULE_BASE_DIR}/lua-upstream \
         --add-dynamic-module=${MODULE_BASE_DIR}/naxsi/naxsi_src \
+        --add-dynamic-module=${MODULE_BASE_DIR}/nchan \
+        --add-dynamic-module=${MODULE_BASE_DIR}/nginx-module-vts \
         --add-dynamic-module=${MODULE_BASE_DIR}/redis2 \
         --add-dynamic-module=${MODULE_BASE_DIR}/set-misc \
         --add-dynamic-module=${MODULE_BASE_DIR}/ngx_slowfs_cache \
