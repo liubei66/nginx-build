@@ -133,7 +133,7 @@ RUN set -eux; \
 #所有第三方模块克隆命令合并为单个RUN层（减少镜像层数、精简构建）
 RUN set -eux; mkdir -p ${MODULE_BASE_DIR} && \
     git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git ${MODULE_BASE_DIR}/ngx_devel_kit && \
-    git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git ${MODULE_BASE_DIR}/nginx-module-vts && \
+    #git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git ${MODULE_BASE_DIR}/nginx-module-vts && \
     git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git ${MODULE_BASE_DIR}/ngx_dynamic_upstream && \
     git clone --depth 1 --branch master https://github.com/Lax/traffic-accounting-nginx-module.git ${MODULE_BASE_DIR}/traffic-accounting && \
     git clone --depth 1 --branch master https://github.com/openresty/array-var-nginx-module.git ${MODULE_BASE_DIR}/array-var && \
@@ -224,7 +224,7 @@ RUN set -eux; \
         --with-stream_ssl_preread_module \
         --add-dynamic-module=${MODULE_BASE_DIR}/njs/nginx \
         --add-dynamic-module=${MODULE_BASE_DIR}/ngx_devel_kit \
-        --add-dynamic-module=${MODULE_BASE_DIR}/nginx-module-vts \
+        #--add-dynamic-module=${MODULE_BASE_DIR}/nginx-module-vts \
         --add-dynamic-module=${MODULE_BASE_DIR}/ngx_dynamic_upstream \
         --add-dynamic-module=${MODULE_BASE_DIR}/traffic-accounting \
         --add-dynamic-module=${MODULE_BASE_DIR}/array-var \
