@@ -1,27 +1,33 @@
-name: Build and Push Nginx Image with Tag
+name: Build Image + Auto Create GitHub Release
 
 on:
   push:
-    branches: ['main', 'master', 'develop', 'release/*']
-    paths: ['Dockerfile']
-    tags: ['v*']
+    # ✅ 修复分支拼写错误 + 适配多级release分支
+    branches: ['main', 'master', 'develop', 'devlop', 'release/**']
+    # ✅ 修复路径匹配：支持根目录/任意子目录下的Dockerfile
+    paths: ['**/Dockerfile']
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      final_version: ${{ env.FINAL_VERSION }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract Docker Tag from GitHub Tag
-        id: extract_tag
+      - name: Extract Version (v前缀优先 / 秒级日期兜底)
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            TAG_NAME=${GITHUB_REF#refs/tags/}
-            echo "DOCKER_TAG=$TAG_NAME" >> $GITHUB_ENV
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          PURE_MSG=$(echo "$COMMIT_MSG" | head -n1 | xargs)
+          if [[ $PURE_MSG =~ ^v[0-9].* ]]; then
+            FINAL_VERSION="$PURE_MSG"
+            echo "✅ 匹配到v版本号：$FINAL_VERSION"
           else
-            echo "DOCKER_TAG=latest" >> $GITHUB_ENV
+            FINAL_VERSION=$(date +'%Y%m%d%H%M%S')
+            echo "ℹ️ 自动生成秒级日期版本：$FINAL_VERSION"
           fi
+          echo "FINAL_VERSION=$FINAL_VERSION" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -32,10 +38,31 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build Docker Image
+      - name: Build & Push Docker Image
         run: |
           docker buildx build --platform linux/amd64 \
-            -t ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:${{ env.DOCKER_TAG }} \
+            -t ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:${{ env.FINAL_VERSION }} \
             -t ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:latest \
             --push \
             .
+
+  create-github-release:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build-and-push.outputs.final_version }}
+          release_name: Release ${{ needs.build-and-push.outputs.final_version }}
+          generate_release_notes: true
+          # ✅ 优化：v开头版本为正式版，日期版本为预发布版（更合理）
+          prerelease: ${{ !startsWith(needs.build-and-push.outputs.final_version, 'v') }}
+          make_latest: true
