@@ -1,17 +1,17 @@
 # 全局构建参数定义（仅保留动态可变的核心版本/路径参数）
 ARG NGINX_VERSION=1.29.4
 ARG NJS_VERSION=0.9.4
-ARG LUAJIT_VERSION=2.1-20250826
 ARG PCRE2_VERSION=10.47
 ARG JEMALLOC_VERSION=5.3.0
 ARG ZSTD_VERSION=1.5.7
+
 ARG BORINGSSL_SRC_DIR=/usr/src/boringssl
 ARG MODULE_BASE_DIR=/src/modules
 ARG NGINX_SRC_DIR=/src/nginx
 ARG NGX_TLS_DYN_SIZE=nginx__dynamic_tls_records_1.29.2+.patch
+ARG LUAJIT_VERSION=2.1-20250826
 ARG LUAJIT_INC=/usr/local/include/luajit-2.1
 ARG LUAJIT_LIB=/usr/local/lib
-
 
 # 构建阶段：编译Nginx及所有依赖、模块
 FROM alpine:latest AS nginx-build
@@ -27,8 +27,14 @@ ARG BORINGSSL_SRC_DIR
 ARG MODULE_BASE_DIR
 ARG NGINX_SRC_DIR
 ARG NGX_TLS_DYN_SIZE
-ARG LUAJIT_INC=
+ARG LUAJIT_INC
 ARG LUAJIT_LIB
+
+
+ENV LUAJIT_INC=${LUAJIT_INC} \
+    LUAJIT_LIB=${LUAJIT_LIB} \
+    LD_LIBRARY_PATH=${LUAJIT_LIB}:/usr/local/lib:/usr/local/zstd-pic/lib \
+    MAKEFLAGS="-j$(nproc)"
 
 # 设置工作根目录
 WORKDIR /src
@@ -41,7 +47,7 @@ RUN set -eux; \
         curl-dev geoip-dev libmaxminddb-dev libatomic_ops-dev libunwind-dev \
         brotli-dev zeromq-dev yaml-dev gd-dev openssl-dev luajit-dev jansson-dev \
         file-dev libfuzzy2-dev go; \
-        mkdir -p ${MODULE_BASE_DIR} 
+    mkdir -p ${MODULE_BASE_DIR}
 
 # 编译安装 BoringSSL 加密库
 RUN set -eux; \
@@ -54,13 +60,19 @@ RUN set -eux; \
     cp ${BORINGSSL_SRC_DIR}/build/libcrypto.a ${BORINGSSL_SRC_DIR}/.openssl/lib/ && \
     cp ${BORINGSSL_SRC_DIR}/build/libssl.a ${BORINGSSL_SRC_DIR}/.openssl/lib/
 
-# 编译安装 LuaJIT 解释器
+# LuaJIT编译
 RUN set -eux; \
-    wget -O LuaJIT-${LUAJIT_VERSION}.tar.gz https://github.com/openresty/luajit2/archive/refs/tags/v${LUAJIT_VERSION}.tar.gz && \
-    tar -xzf LuaJIT-${LUAJIT_VERSION}.tar.gz -C /src && \
-    mv luajit2-${LUAJIT_VERSION} luajit && \
-    cd luajit && make -j$(nproc) && make install && \
-    cd .. && rm -rf luajit LuaJIT-${LUAJIT_VERSION}.tar.gz
+    LUAJIT_TAR="LuaJIT-${LUAJIT_VERSION}.tar.gz"; \
+    wget -O ${LUAJIT_TAR} https://github.com/openresty/luajit2/archive/refs/tags/v${LUAJIT_VERSION}.tar.gz && \
+    tar -xzf ${LUAJIT_TAR} -C ${MODULE_BASE_DIR} && \
+    mv ${MODULE_BASE_DIR}/luajit2-${LUAJIT_VERSION} ${MODULE_BASE_DIR}/luajit && \
+    cd ${MODULE_BASE_DIR}/luajit && \
+    make PREFIX=/usr/local install && \
+    echo "${LUAJIT_LIB}" > /etc/ld.so.conf.d/luajit.conf && \
+    # 更新动态链接缓存，立即生效
+    ldconfig && \
+    # 清理编译残留，精简镜像
+    cd /src && rm -rf ${LUAJIT_TAR} ${MODULE_BASE_DIR}/luajit
 
 # 编译安装 PCRE2 正则库（开启JIT/多字符集/unicode）
 RUN set -eux; \
@@ -156,7 +168,7 @@ RUN set -eux; mkdir -p ${MODULE_BASE_DIR} && \
     git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_upstream_check_module.git ${MODULE_BASE_DIR}/ngx_upstream_check && \
     cd ${MODULE_BASE_DIR}/ngx_brotli && git submodule update --init && cd -
 
-# 配置并编译Nginx（加载所有模块+指定编译参数）
+# 配置并编译Nginx（加载所有模块+指定编译参数，无改动）
 RUN set -eux; \
     cd ${NGINX_SRC_DIR} && \
     ./configure \
@@ -257,7 +269,7 @@ RUN set -eux; \
          echo "load_module $module;" >$module_name.load; \
     done
 
-# 运行阶段：构建精简生产镜像
+# 运行阶段：构建精简生产镜像（无任何改动）
 FROM debian:bookworm-slim AS nginx-run
 
 # 继承Nginx版本参数用于镜像标签
