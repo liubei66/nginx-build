@@ -87,10 +87,19 @@ RUN set -eux; \
     make PREFIX=/usr/local/zstd-pic install && \
     cd .. && rm -rf zstd-${ZSTD_VERSION} zstd-${ZSTD_VERSION}.tar.gz
 
+# 下载并解压njs模块
+RUN set -eux; \
+    NJS_TAR="${MODULE_BASE_DIR}/njs-${NJS_VERSION}.tar.gz"; \
+    wget -O ${NJS_TAR} https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz; \
+    tar -zxf ${NJS_TAR} -C ${MODULE_BASE_DIR}; \
+    mv ${MODULE_BASE_DIR}/njs-${NJS_VERSION} ${MODULE_BASE_DIR}/njs; \
+    rm -f ${NJS_TAR}; \
+[ -d "/usr/src/nginx/modules/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
+
 # 编译安装 QuickJS 引擎
 RUN set -eux; \
-    git clone https://github.com/bellard/quickjs /src/quickjs && \
-    cd /src/quickjs && CFLAGS='-fPIC' make libquickjs.a
+    git clone https://github.com/bellard/quickjs ${MODULE_BASE_DIR}/quickjs && \
+    cd ${MODULE_BASE_DIR}/quickjs && CFLAGS='-fPIC' make libquickjs.a
 
 # 下载Nginx源码并应用TLS动态记录补丁
 RUN set -eux; \
@@ -106,9 +115,8 @@ RUN set -eux; \
     patch -p1 < upstream_check.patch || echo "upstream_check补丁适配警告"; \
     rm -f upstream_check.patch
 
-# 所有第三方模块克隆命令合并为单个RUN层（减少镜像层数、精简构建）
+#所有第三方模块克隆命令合并为单个RUN层（减少镜像层数、精简构建）
 RUN set -eux; mkdir -p ${MODULE_BASE_DIR} && \
-    # 基础扩展模块
     git clone --depth 1 --branch master https://github.com/vision5/ngx_devel_kit.git ${MODULE_BASE_DIR}/ngx_devel_kit && \
     git clone --depth 1 --branch master https://github.com/vozlt/nginx-module-vts.git ${MODULE_BASE_DIR}/nginx-module-vts && \
     git clone --depth 1 --branch master https://github.com/ZigzagAK/ngx_dynamic_upstream.git ${MODULE_BASE_DIR}/ngx_dynamic_upstream && \
@@ -118,7 +126,6 @@ RUN set -eux; mkdir -p ${MODULE_BASE_DIR} && \
     git clone --depth 1 --branch master https://github.com/nginx-modules/ngx_cache_purge.git ${MODULE_BASE_DIR}/ngx_cache_purge && \
     git clone --depth 1 --branch master https://github.com/AirisX/nginx_cookie_flag_module.git ${MODULE_BASE_DIR}/nginx_cookie_flag && \
     git clone --depth 1 --branch master https://github.com/arut/nginx-dav-ext-module.git ${MODULE_BASE_DIR}/nginx-dav-ext && \
-    # OpenResty系列模块
     git clone --depth 1 --branch master https://github.com/openresty/echo-nginx-module.git ${MODULE_BASE_DIR}/echo && \
     git clone --depth 1 --branch master https://github.com/openresty/encrypted-session-nginx-module.git ${MODULE_BASE_DIR}/encrypted-session && \
     git clone --depth 1 --branch master https://github.com/openresty/headers-more-nginx-module.git ${MODULE_BASE_DIR}/headers-more && \
@@ -126,7 +133,6 @@ RUN set -eux; mkdir -p ${MODULE_BASE_DIR} && \
     git clone --depth 1 --branch master https://github.com/openresty/lua-upstream-nginx-module.git ${MODULE_BASE_DIR}/lua-upstream && \
     git clone --depth 1 --branch master https://github.com/openresty/redis2-nginx-module.git ${MODULE_BASE_DIR}/redis2 && \
     git clone --depth 1 --branch master https://github.com/openresty/set-misc-nginx-module.git ${MODULE_BASE_DIR}/set-misc && \
-    # 功能扩展模块
     git clone --depth 1 --branch master https://github.com/aperezdc/ngx-fancyindex.git ${MODULE_BASE_DIR}/ngx-fancyindex && \
     git clone --depth 1 --branch master https://github.com/leev/ngx_http_geoip2_module.git ${MODULE_BASE_DIR}/ngx_http_geoip2_module && \
     git clone --depth 1 --branch main https://github.com/kjdev/nginx-keyval.git ${MODULE_BASE_DIR}/nginx-keyval && \
@@ -136,14 +142,12 @@ RUN set -eux; mkdir -p ${MODULE_BASE_DIR} && \
     git clone --depth 1 --branch master https://github.com/FRiCKLE/ngx_slowfs_cache.git ${MODULE_BASE_DIR}/ngx_slowfs_cache && \
     git clone --depth 1 --branch master https://github.com/fdintino/nginx-upload-module.git ${MODULE_BASE_DIR}/nginx-upload && \
     git clone --depth 1 --branch master https://github.com/masterzen/nginx-upload-progress-module.git ${MODULE_BASE_DIR}/nginx-upload-progress && \
-    # 上游服务模块
     git clone --depth 1 --branch master https://github.com/runenyUnidex/nginx-upstream-fair.git ${MODULE_BASE_DIR}/nginx-upstream-fair && \
     git clone --depth 1 --branch master https://github.com/RekGRpth/ngx_upstream_jdomain.git ${MODULE_BASE_DIR}/ngx_upstream_jdomain && \
     git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_zstd_module.git ${MODULE_BASE_DIR}/zstd-nginx && \
     git clone --depth 1 --branch master https://github.com/arut/nginx-rtmp-module.git ${MODULE_BASE_DIR}/nginx-rtmp && \
     git clone --depth 1 --branch master https://github.com/gi0baro/nginx-upstream-dynamic-servers.git ${MODULE_BASE_DIR}/nginx-upstream-dynamic-servers && \
     git clone --depth 1 --branch master https://github.com/HanadaLee/ngx_http_upstream_check_module.git ${MODULE_BASE_DIR}/ngx_upstream_check && \
-    # 初始化brotli子模块
     cd ${MODULE_BASE_DIR}/ngx_brotli && git submodule update --init && cd -
 
 # 配置并编译Nginx（加载所有模块+指定编译参数）
@@ -173,8 +177,8 @@ RUN set -eux; \
         --without-poll_module \
         --without-select_module \
         --with-openssl="${BORINGSSL_SRC_DIR}" \
-        --with-cc-opt="-I${BORINGSSL_SRC_DIR}/.openssl/include -I/usr/local/include/luajit-2.1 -I/usr/local/zstd-pic/include -I/usr/local/include -I/src/quickjs -Wno-error -Wno-deprecated-declarations -fPIC" \
-        --with-ld-opt="-L${BORINGSSL_SRC_DIR}/.openssl/lib -L/usr/local/lib -L/usr/local/zstd-pic/lib -L/src/quickjs -L/usr/local/lib -Wl,-rpath,/usr/local/lib:/usr/local/zstd-pic/lib:/usr/local/lib -lssl -lcrypto -lstdc++ -lzstd -lquickjs -lz -lpcre2-8 -ljemalloc -lpthread -Wl,-Bsymbolic-functions" \
+        --with-cc-opt="-I${BORINGSSL_SRC_DIR}/.openssl/include -I/usr/local/include/luajit-2.1 -I/usr/local/zstd-pic/include -I/usr/local/include -I${MODULE_BASE_DIR}/quickjs -Wno-error -Wno-deprecated-declarations -fPIC" \
+        --with-ld-opt="-L${BORINGSSL_SRC_DIR}/.openssl/lib -L/usr/local/lib -L/usr/local/zstd-pic/lib -L${MODULE_BASE_DIR}/quickjs -L/usr/local/lib -Wl,-rpath,/usr/local/lib:/usr/local/zstd-pic/lib:/usr/local/lib -lssl -lcrypto -lstdc++ -lzstd -lquickjs -lz -lpcre2-8 -ljemalloc -lpthread -Wl,-Bsymbolic-functions" \
         --with-http_ssl_module \
         --with-http_v2_module \
         --with-http_v3_module \
@@ -203,7 +207,7 @@ RUN set -eux; \
         --with-stream_realip_module \
         --with-stream_geoip_module=dynamic \
         --with-stream_ssl_preread_module \
-        --add-dynamic-module=/src/njs/nginx \
+        --add-dynamic-module=${MODULE_BASE_DIR}/njs/nginx \
         --add-dynamic-module=${MODULE_BASE_DIR}/ngx_devel_kit \
         --add-dynamic-module=${MODULE_BASE_DIR}/nginx-module-vts \
         --add-dynamic-module=${MODULE_BASE_DIR}/ngx_dynamic_upstream \
