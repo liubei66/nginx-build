@@ -126,7 +126,7 @@ RUN set -eux; \
 RUN set -eux; \
     NJS_TAR="/src/njs-${NJS_VERSION}.tar.gz"; \
     wget -O ${NJS_TAR} https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz; \
-    mkdir -p /src/modules; \
+    mkdir -p /src/njs; \
     tar -zxf ${NJS_TAR} -C /src/njs; \
     mv /src/njs-${NJS_VERSION} /src/njs; \
     rm -f ${NJS_TAR}; \
