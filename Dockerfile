@@ -273,7 +273,7 @@ RUN set -eux; \
     chown -R nginx:nginx /var/lib/nginx /run/nginx /var/log/nginx; \
     chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx; \
     # 配置动态库加载路径并生效
-    RUN echo "/usr/local/lib" >> /etc/ld-musl-x86_64.path && \
+    echo "/usr/local/lib" >> /etc/ld-musl-x86_64.path && \
     echo "/usr/local/zstd-pic/lib" >> /etc/ld-musl-x86_64.path && ldconfig
 
 # 从编译阶段拷贝Nginx产物与依赖库
