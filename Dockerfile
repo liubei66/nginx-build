@@ -35,7 +35,8 @@ RUN set -eux; \
         zlib-dev pcre2-dev linux-headers libxml2-dev libxslt-dev perl-dev perl \
         curl-dev geoip-dev libmaxminddb-dev libatomic_ops-dev libunwind-dev \
         brotli-dev zeromq-dev yaml-dev gd-dev openssl-dev luajit-dev jansson-dev \
-        file-dev libfuzzy2-dev go
+        file-dev libfuzzy2-dev go; \
+        mkdir -p ${MODULE_BASE_DIR} 
 
 # 编译安装 BoringSSL 加密库
 RUN set -eux; \
