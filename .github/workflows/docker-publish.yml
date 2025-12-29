@@ -1,4 +1,4 @@
-name: Build and Push Nginx Image (Tag/Release/Branch)
+name: Build Image + Auto Create GitHub Release
 
 on:
   push:
@@ -8,110 +8,66 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    
+    outputs:
+      final_version: ${{ env.FINAL_VERSION }} # 输出最终版本号，供Release任务使用
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
-      # ✅ 智能适配：多源获取Tag
-      # 优先级：Release > Tag推送 > 提交消息中的版本号
-      - name: Extract Tag (Multi-source)
-        id: extract_tag
-        run: |
-          TAG_NAME=""
-          
-          # 优先级1：从Release事件读取Tag（发布Release时触发）
-          if [ -n "${{ github.event.release.tag_name }}" ]; then
-            TAG_NAME=${{ github.event.release.tag_name }}
-            echo "✅ 从Release事件获取Tag: $TAG_NAME"
-          
-          # 优先级2：从推送的Tag读取（手动git push tag时触发）
-          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            TAG_NAME=${GITHUB_REF#refs/tags/}
-            echo "✅ 从推送的Tag获取Tag: $TAG_NAME"
-          
-          # 优先级3：从提交消息提取版本号 (新增)
-          elif [ -n "${{ github.event.head_commit.message }}" ]; then
-            COMMIT_MSG="${{ github.event.head_commit.message }}"
-            echo "🔍 检查提交消息: $COMMIT_MSG"
-            
-            # 使用正则表达式提取 v 开头的语义化版本号 (vX.Y.Z 或 vX.Y.Z-预发布)
-            if [[ $COMMIT_MSG =~ (v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\.]+)?) ]]; then
-              TAG_NAME=${BASH_REMATCH[1]}
-              echo "✅ 从提交消息提取到版本号: $TAG_NAME"
-            fi
-          fi
-          
-          # 未找到有效版本号时跳过构建
-          if [ -z "$TAG_NAME" ]; then
-            echo "❌ 未找到有效的版本号，跳过Docker构建"
-            echo "FOUND_VALID_VERSION=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # 验证版本号格式
-          if [[ ! $TAG_NAME =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
-            echo "⚠️ 版本号格式不标准: $TAG_NAME，仍继续构建"
-          fi
-          
-          # 输出版本号供后续步骤使用
-          echo "DOCKER_TAG=${TAG_NAME}" >> $GITHUB_ENV
-          echo "FOUND_VALID_VERSION=true" >> $GITHUB_OUTPUT
-          echo "✅ 最终使用Docker Tag：${TAG_NAME}"
 
-      # ✅ 仅当找到有效版本号时继续
-      - name: Validate Version Extraction
-        if: steps.extract_tag.outputs.FOUND_VALID_VERSION != 'true'
+      - name: Extract Version (v前缀优先 / 日期秒级兜底)
         run: |
-          echo "未提取到有效版本号，工作流终止"
-          exit 1
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          # 1. 获取commit message首行内容
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          PURE_MSG=$(echo "$COMMIT_MSG" | head -n1 | xargs)
+          
+          # 2. 核心逻辑：匹配v开头版本号 OR 生成精确到秒的日期版本号
+          if [[ $PURE_MSG =~ ^v[0-9].* ]]; then
+            # ✅ 匹配成功：使用v开头的commit message作为版本号
+            FINAL_VERSION="$PURE_MSG"
+            echo "✅ 匹配到v开头版本号：$FINAL_VERSION"
+          else
+            # ✅ 匹配失败：生成格式【YYYYMMDDHHMMSS】的日期版本号（精确到秒）
+            FINAL_VERSION=$(date +'%Y%m%d%H%M%S')
+            echo "ℹ️ 未匹配到v版本号，自动生成秒级日期版本：$FINAL_VERSION"
+          fi
+          
+          # 3. 将最终版本号写入环境变量，全局可用
+          echo "FINAL_VERSION=$FINAL_VERSION" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build & Push Image
+      - name: Login to Docker Hub
+        uses: docker/setup-buildx-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build & Push Docker Image
         run: |
-          # 构建元数据用于多架构支持
-          DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}
-          
-          # 使用buildx支持多平台构建
           docker buildx build --platform linux/amd64 \
-            -t $DOCKER_IMAGE:${{ env.DOCKER_TAG }} \
-            -t $DOCKER_IMAGE:latest \
+            -t ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:${{ env.FINAL_VERSION }} \
+            -t ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:latest \
             --push \
             .
-        
-        # 增强：添加提交信息到镜像标签
-      - name: Inspect Image (Debug)
-        if: always()
-        run: |
-          DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}
-          docker pull $DOCKER_IMAGE:${{ env.DOCKER_TAG }}
-          echo "✅ 镜像构建完成: $DOCKER_IMAGE:${{ env.DOCKER_TAG }}"
-          echo "🔍 镜像详情:"
-          docker inspect $DOCKER_IMAGE:${{ env.DOCKER_TAG }} | jq '.[0].Config.Labels'
 
-      # 新增：创建GitHub Release（如果是从分支提交触发）
+  # ========== 自动创建GitHub Release（复用统一版本号） ==========
+  create-github-release:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 创建Release必须的权限
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Create GitHub Release
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && steps.extract_tag.outputs.FOUND_VALID_VERSION == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.DOCKER_TAG }}
-          name: Release ${{ env.DOCKER_TAG }}
-          body: |
-            Docker镜像已构建并推送:
-            - `${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:${{ env.DOCKER_TAG }}`
-            - `${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_REPO }}:latest`
-            
-            提交信息: ${{ github.event.head_commit.message }}
-            提交者: ${{ github.actor }}
-          draft: false
-          prerelease: ${{ contains(env.DOCKER_TAG, '-') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ needs.build-and-push.outputs.final_version }}
+          release_name: Release ${{ needs.build-and-push.outputs.final_version }}
+          generate_release_notes: true
+          prerelease: false
+          make_latest: true
