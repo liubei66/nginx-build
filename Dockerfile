@@ -42,7 +42,7 @@ WORKDIR /src
 RUN set -eux; \
     apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates build-essential patch cmake git libtool autoconf automake ninja-build g++ \
-        zlib1g-dev libpcre2-dev linux-libc-dev libxml2-dev libxslt1-dev perl-dev \
+        zlib1g-dev libpcre2-dev linux-libc-dev libxml2-dev libxslt1-dev libperl-dev libmail-dkim-perl \
         libcurl4-openssl-dev libgeoip-dev libmaxminddb-dev libatomic-ops-dev libunwind-dev \
         libbrotli-dev libzmq3-dev libyaml-dev libgd-dev libssl-dev libluajit-5.1-dev libjansson-dev \
         libmagic-dev libfuzzy-dev golang-go wget tar gzip bzip2 xz-utils; \
