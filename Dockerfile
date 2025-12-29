@@ -310,7 +310,6 @@ COPY --from=nginx-build /usr/lib/nginx /usr/lib/nginx
 COPY --from=nginx-build /etc/nginx /etc/nginx
 COPY --from=nginx-build /var/lib/nginx /var/lib/nginx
 COPY --from=nginx-build /usr/local /usr/local
-COPY --from=nginx-build /etc/ld.so.conf.d/ /etc/ld.so.conf.d/
 
 # 暴露服务端口（TCP+UDP，适配HTTP3/QUIC）
 EXPOSE 80 443 443/udp
