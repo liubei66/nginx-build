@@ -2,8 +2,8 @@ name: Build Image + Auto Create GitHub Release
 
 on:
   push:
-    branches: ['main', 'master', 'develop', 'release/*']
-    paths: ['Dockerfile']
+    # branches: ['main', 'master', 'develop', 'release/*']
+    # paths: ['Dockerfile']
 
 jobs:
   build-and-push:
