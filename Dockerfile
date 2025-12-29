@@ -30,7 +30,6 @@ ARG NGX_TLS_DYN_SIZE
 ARG LUAJIT_INC
 ARG LUAJIT_LIB
 
-
 ENV LUAJIT_INC=${LUAJIT_INC} \
     LUAJIT_LIB=${LUAJIT_LIB} \
     LD_LIBRARY_PATH=${LUAJIT_LIB}:/usr/local/lib:/usr/local/zstd-pic/lib \
