@@ -14,7 +14,7 @@ ARG LUAJIT_VERSION=2.1-20250826
 
 ARG LUAJIT_INC=/usr/local/include/luajit-2.1
 ARG LUAJIT_LIB=/usr/local/lib
-ARG OPENSSL_VERSION=3.0.15-quic1
+ARG OPENSSL_VERSION=3.5.4
 ARG OPENSSL_SRC_DIR=/usr/src/openssl
 # TLS动态记录补丁版本，统一管理
 ARG NGX_TLS_DYN_SIZE=nginx__dynamic_tls_records_1.29.2+.patch
@@ -123,7 +123,7 @@ RUN set -eux; \
 
 # 下载并编译OpenSSL
 RUN set -eux; \
-    OPENSSL_URL="https://github.com/quictls/openssl/archive/refs/tags/openssl-${OPENSSL_VERSION}.tar.gz"; \
+    OPENSSL_URL="https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz"; \
     wget -O /usr/src/openssl-${OPENSSL_VERSION}.tar.gz ${OPENSSL_URL}; \
     tar -zxf /usr/src/openssl-${OPENSSL_VERSION}.tar.gz -C ${OPENSSL_SRC_DIR} --strip-components=1; \
     rm -f /usr/src/openssl-${OPENSSL_VERSION}.tar.gz; \
