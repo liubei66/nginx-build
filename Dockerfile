@@ -54,7 +54,7 @@ RUN set -eux; \
     update-ca-certificates; \
     rm -rf /var/lib/apt/lists/*; \
     mkdir -p ${NGINX_SRC_DIR}/src ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib; \
-    chmod -R 755 ${NGINX_SRC_DIR}; \
+    chmod -R 755 ${NGINX_SRC_DIR} ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib;
     echo "/usr/local/lib" > /etc/ld.so.conf.d/global-libs.conf && ldconfig
 
 # 下载、解压并编译ZSTD库
@@ -88,7 +88,7 @@ RUN set -eux; \
     cd ${NGINX_MODULES_DIR}/luajit; \
     make PREFIX=/usr/local install; \
     ldconfig; \
-    rm -rf ${NGINX_SRC_DIR}/${LUAJIT_TAR} ${NGINX_MODULES_DIR}/luajit
+    rm -rf ${NGINX_SRC_DIR}/${LUAJIT_TAR}
 
 # 下载、解压并编译PCRE2库
 RUN set -eux; \
@@ -119,7 +119,7 @@ RUN set -eux; \
 RUN set -eux; \
     git clone https://github.com/bellard/quickjs ${NGINX_MODULES_DIR}/quickjs; \
     cd ${NGINX_MODULES_DIR}/quickjs; \
-    && CFLAGS='-fPIC' make libquickjs.a
+    CFLAGS='-fPIC' make libquickjs.a
 
 # 下载并编译OpenSSL
 RUN set -eux; \
@@ -236,8 +236,8 @@ RUN set -eux; \
   --with-stream_realip_module \
   --with-stream_geoip_module=dynamic \
   --with-stream_ssl_preread_module \
-  --with-cc-opt="-O3 -flto -I${LUAJIT_INC} -I-I${MODULE_BASE_DIR}/quickjs -I/usr/local/include -I${OPENSSL_SRC_DIR}/include -I/usr/include" \
-  --with-ld-opt="-L${LUAJIT_LIB} -L/usr/local/lib -L${OPENSSL_SRC_DIR} -L-L${MODULE_BASE_DIR}/quickjs -Wl,-rpath,/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc -Wl,-Bsymbolic-functions -flto" \
+  --with-cc-opt="-O3 -flto -I${LUAJIT_INC} -I${NGINX_MODULES_DIR}/quickjs -I/usr/local/include -I${OPENSSL_SRC_DIR}/include -I/usr/include" \
+  --with-ld-opt="-L${LUAJIT_LIB} -L/usr/local/lib -L${OPENSSL_SRC_DIR} -L${NGINX_MODULES_DIR}/quickjs -Wl,-rpath,/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc -Wl,-Bsymbolic-functions -flto" \
   --add-dynamic-module=${NGINX_MODULES_DIR}/njs/nginx \
   --add-dynamic-module=${NGINX_MODULES_DIR}/ngx_devel_kit \
   --add-dynamic-module=${NGINX_MODULES_DIR}/nginx-module-vts \
