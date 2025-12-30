@@ -317,4 +317,4 @@ COPY --from=nginx-build /usr/local/lib /usr/local/lib
 EXPOSE 80 443 443/udp
 
 # 启动Nginx服务
-CMD ["sh", "-c", "nginx -g 'daemon off;'"]
+CMD ["nginx", "-g", "daemon off;"]
