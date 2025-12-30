@@ -17,7 +17,7 @@ ARG LUAJIT_LIB=/usr/local/lib
 ARG OPENSSL_VERSION=3.0.15-quic1
 ARG OPENSSL_SRC_DIR=/usr/src/openssl
 # TLS动态记录补丁版本，统一管理
-ARG NGX_TLS_DYN_SIZE=dynamic_tls_records_1.29.0+.patch
+ARG NGX_TLS_DYN_SIZE=nginx__dynamic_tls_records_1.29.2+.patch
 
 # 构建阶段：编译Nginx及所有依赖组件与模块
 FROM debian:bookworm-slim AS nginx-build
