@@ -45,12 +45,12 @@ RUN set -eux; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
     wget git gcc g++ make patch unzip libtool autoconf \
-    libpcre3-dev zlib1g-dev libgeoip-dev \
+    libpcre3-dev zlib1g-dev libgeoip-dev libperl-dev \
     libbrotli-dev libzmq3-dev liblua5.1-dev libyaml-dev libxml2-dev \
     libcurl4-openssl-dev libjansson-dev libmagic-dev libtar-dev libmaxminddb-dev \
     libxslt-dev libgd-dev libmail-dkim-perl libjwt-dev \
     libnginx-mod-http-dav-ext libpcre2-dev libjemalloc-dev binutils; \
-    apt-get purge -y libssl-dev libperl-dev; \
+    apt-get purge -y libssl-dev; \
     update-ca-certificates; \
     rm -rf /var/lib/apt/lists/*; \
     mkdir -p ${NGINX_SRC_DIR}/src ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib; \
