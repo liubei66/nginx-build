@@ -119,11 +119,7 @@ RUN set -eux; \
 RUN set -eux; \
     git clone https://github.com/bellard/quickjs ${NGINX_MODULES_DIR}/quickjs; \
     cd ${NGINX_MODULES_DIR}/quickjs; \
-    CFLAGS='-fPIC' make libquickjs.a libquickjs.so; \
-    cp libquickjs.so* /usr/local/lib/; \
-    cp quickjs*.h /usr/local/include/; \
-    ldconfig; \
-    rm -rf ${NGINX_MODULES_DIR}/quickjs
+    && CFLAGS='-fPIC' make libquickjs.a
 
 # 下载并编译OpenSSL
 RUN set -eux; \
@@ -240,8 +236,8 @@ RUN set -eux; \
   --with-stream_realip_module \
   --with-stream_geoip_module=dynamic \
   --with-stream_ssl_preread_module \
-  --with-cc-opt="-O3 -flto -I${LUAJIT_INC} -I/usr/local/include -I${OPENSSL_SRC_DIR}/include -I/usr/include" \
-  --with-ld-opt="-L${LUAJIT_LIB} -L/usr/local/lib -L${OPENSSL_SRC_DIR} -Wl,-rpath,/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc -Wl,-Bsymbolic-functions -flto" \
+  --with-cc-opt="-O3 -flto -I${LUAJIT_INC} -I-I${MODULE_BASE_DIR}/quickjs -I/usr/local/include -I${OPENSSL_SRC_DIR}/include -I/usr/include" \
+  --with-ld-opt="-L${LUAJIT_LIB} -L/usr/local/lib -L${OPENSSL_SRC_DIR} -L-L${MODULE_BASE_DIR}/quickjs -Wl,-rpath,/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc -Wl,-Bsymbolic-functions -flto" \
   --add-dynamic-module=${NGINX_MODULES_DIR}/njs/nginx \
   --add-dynamic-module=${NGINX_MODULES_DIR}/ngx_devel_kit \
   --add-dynamic-module=${NGINX_MODULES_DIR}/nginx-module-vts \
