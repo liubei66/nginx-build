@@ -403,10 +403,7 @@ LABEL description="Nginx ${NGINX_VERSION} with OpenSSL ${OPENSSL_VERSION} + cust
 # 配置软件源并安装运行时依赖
 RUN set -eux; \
     apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
-        #libpcre3 libpcre2-8-0 zlib1g libxslt1.1 libgd3 libgeoip1 libperl5.36 \
-        #libbrotli1 libzmq5 liblua5.1-0 libyaml-0-2 libxml2 libcurl3-gnutls \
-        #libjansson4 libmagic1 libtar0 libmaxminddb0 libjemalloc2 \
+    apt-get install -y --no-install-recommends ca-certificates apt-transport-https libzmq5 \
         curl iproute2 procps lsof dnsutils net-tools less jq \
         vim wget htop tcpdump strace telnet; \
     update-ca-certificates; \
@@ -434,7 +431,7 @@ COPY --from=nginx-build /usr/sbin/nginx /usr/sbin/nginx
 COPY --from=nginx-build /usr/lib/nginx /usr/lib/nginx
 COPY --from=nginx-build /etc/nginx /etc/nginx
 COPY --from=nginx-build /var/lib/nginx /var/lib/nginx
-COPY --from=nginx-build /usr/local /usr/local
+COPY --from=nginx-build /usr/local/lib /usr/local/lib
 
 # 暴露端口
 EXPOSE 80 443 443/udp
