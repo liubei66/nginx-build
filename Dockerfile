@@ -171,11 +171,6 @@ RUN set -eux; \
     (echo "克隆ngx_brotli失败，重试..." && git clone --depth 1 --branch master https://github.com/google/ngx_brotli.git /usr/src/nginx/modules/ngx_brotli); \
     cd /usr/src/nginx/modules/ngx_brotli && git submodule update --init
 
-# 克隆ngx_cache_purge模块
-RUN set -eux; \
-    git clone --depth 1 --branch master https://github.com/nginx-modules/ngx_cache_purge.git /usr/src/nginx/modules/ngx_cache_purge || \
-    (echo "克隆ngx_cache_purge失败，重试..." && git clone --depth 1 --branch master https://github.com/nginx-modules/ngx_cache_purge.git /usr/src/nginx/modules/ngx_cache_purge)
-
 # 克隆nginx_cookie_flag模块
 RUN set -eux; \
     git clone --depth 1 --branch master https://github.com/AirisX/nginx_cookie_flag_module.git /usr/src/nginx/modules/nginx_cookie_flag || \
