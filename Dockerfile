@@ -183,8 +183,7 @@ RUN set -eux; \
     git_clone https://github.com/HanadaLee/ngx_http_zstd_module.git ${NGINX_MODULES_DIR}/zstd-nginx master; \
     git_clone https://github.com/arut/nginx-rtmp-module.git ${NGINX_MODULES_DIR}/nginx-rtmp master; \
     git_clone https://github.com/HanadaLee/ngx_http_upstream_check_module.git ${NGINX_MODULES_DIR}/ngx_upstream_check master; \
-    cd ${NGINX_MODULES_DIR}/ngx_brotli && git submodule update --init; \
-    find ${NGINX_MODULES_DIR} -name ".git" -type d -exec rm -rf {} \;
+    cd ${NGINX_MODULES_DIR}/ngx_brotli && git submodule update --init;
 
 # 配置、编译并安装Nginx
 WORKDIR ${NGINX_SRC_DIR}/src
