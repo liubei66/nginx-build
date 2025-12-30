@@ -286,4 +286,4 @@ COPY --from=nginx-build /usr/local /usr/local
 EXPOSE 80 443 443/udp
 
 # 前台启动Nginx服务，保证容器常驻
-CMD ["sh", "-c", "nginx -g 'daemon off;'"]
+CMD ["nginx", "-g", "daemon off;"]
