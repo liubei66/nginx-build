@@ -54,7 +54,7 @@ RUN set -eux; \
     update-ca-certificates; \
     rm -rf /var/lib/apt/lists/*; \
     mkdir -p ${NGINX_SRC_DIR}/src ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib; \
-    chmod -R 755 ${NGINX_SRC_DIR} ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib;
+    chmod -R 755 ${NGINX_SRC_DIR} ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib; \
     echo "/usr/local/lib" > /etc/ld.so.conf.d/global-libs.conf && ldconfig
 
 # 下载、解压并编译ZSTD库
