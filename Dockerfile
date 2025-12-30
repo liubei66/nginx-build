@@ -301,7 +301,7 @@ RUN set -eux; \
 WORKDIR /usr/src/nginx/src
 RUN set -eux; \
 ./configure \
-  --prefix=/var/lib/nginx \
+  --prefix=/etc/nginx \
   --sbin-path=/usr/sbin/nginx \
   --modules-path=/usr/lib/nginx/modules \
   --conf-path=/etc/nginx/nginx.conf \
