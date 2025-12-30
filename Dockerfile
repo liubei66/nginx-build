@@ -21,8 +21,6 @@ ARG NGX_TLS_DYN_SIZE=dynamic_tls_records_1.29.0+.patch
 
 # 构建阶段：编译Nginx及所有依赖组件与模块
 FROM debian:bookworm-slim AS nginx-build
-
-# 继承全局构建参数
 ARG NGINX_VERSION
 ARG NJS_VERSION
 ARG LUAJIT_VERSION
@@ -37,7 +35,7 @@ ARG NGINX_SRC_DIR
 ARG NGINX_MODULES_DIR
 ARG NGX_TLS_DYN_SIZE
 
-# 设置编译环境变量，配置pkg-config依赖搜索路径
+# 配置编译环境变量
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
     GIT_SSL_NO_VERIFY=1 \
     MAKEFLAGS="-j$(nproc)"
@@ -59,20 +57,31 @@ RUN set -eux; \
     chmod -R 755 ${NGINX_SRC_DIR}; \
     echo "/usr/local/lib" > /etc/ld.so.conf.d/global-libs.conf && ldconfig
 
-# 下载并编译OpenSSL
+# 下载、解压并编译ZSTD库
 RUN set -eux; \
-    local OPENSSL_URL="https://github.com/quictls/openssl/archive/refs/tags/openssl-${OPENSSL_VERSION}.tar.gz"; \
-    wget -O /usr/src/openssl-${OPENSSL_VERSION}.tar.gz ${OPENSSL_URL}; \
-    tar -zxf /usr/src/openssl-${OPENSSL_VERSION}.tar.gz -C ${OPENSSL_SRC_DIR} --strip-components=1; \
-    rm -f /usr/src/openssl-${OPENSSL_VERSION}.tar.gz; \
-    cd ${OPENSSL_SRC_DIR}; \
-    ./Configure no-shared zlib -O3 enable-tls1_3 enable-ktls enable-quic linux-x86_64; \
-    make -j$(nproc)
+    cd /tmp; \
+    wget -O zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/refs/tags/v${ZSTD_VERSION}.tar.gz; \
+    tar -zxf zstd-${ZSTD_VERSION}.tar.gz; \
+    cd zstd-${ZSTD_VERSION}; \
+    make clean; \
+    CFLAGS="-fPIC -O2" CXXFLAGS="-fPIC -O2" make -j$(nproc); \
+    make PREFIX=/usr/local install; \
+    ldconfig; \
+    rm -rf /tmp/zstd-${ZSTD_VERSION} /tmp/zstd-${ZSTD_VERSION}.tar.gz
+
+# 下载并解压NJS模块
+RUN set -eux; \
+    NJS_TAR="${NGINX_SRC_DIR}/njs-${NJS_VERSION}.tar.gz"; \
+    wget -O ${NJS_TAR} https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz; \
+    tar -zxf ${NJS_TAR} -C ${NGINX_MODULES_DIR}; \
+    mv ${NGINX_MODULES_DIR}/njs-${NJS_VERSION} ${NGINX_MODULES_DIR}/njs; \
+    rm -f ${NJS_TAR}; \
+    [ -d "${NGINX_MODULES_DIR}/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
 
 # 下载、解压并安装LuaJIT
 RUN set -eux; \
-    local LUAJIT_TAR="LuaJIT-${LUAJIT_VERSION}.tar.gz"; \
-    local LUAJIT_URL="https://github.com/openresty/luajit2/archive/refs/tags/v${LUAJIT_VERSION}.tar.gz"; \
+    LUAJIT_TAR="LuaJIT-${LUAJIT_VERSION}.tar.gz"; \
+    LUAJIT_URL="https://github.com/openresty/luajit2/archive/refs/tags/v${LUAJIT_VERSION}.tar.gz"; \
     wget -O ${NGINX_SRC_DIR}/${LUAJIT_TAR} ${LUAJIT_URL}; \
     tar -zxf ${NGINX_SRC_DIR}/${LUAJIT_TAR} -C ${NGINX_MODULES_DIR}; \
     mv ${NGINX_MODULES_DIR}/luajit2-${LUAJIT_VERSION} ${NGINX_MODULES_DIR}/luajit; \
@@ -106,7 +115,7 @@ RUN set -eux; \
     ldconfig; \
     rm -rf /tmp/jemalloc-${JEMALLOC_VERSION} /tmp/jemalloc-${JEMALLOC_VERSION}.tar.gz
 
-# 下载、编译QuickJS引擎并部署至系统库目录
+# 下载、编译并部署QuickJS引擎
 RUN set -eux; \
     git clone https://github.com/bellard/quickjs ${NGINX_MODULES_DIR}/quickjs; \
     cd ${NGINX_MODULES_DIR}/quickjs; \
@@ -115,26 +124,24 @@ RUN set -eux; \
     cp quickjs*.h /usr/local/include/; \
     ldconfig; \
     rm -rf ${NGINX_MODULES_DIR}/quickjs
-    
-# 下载、解压并编译ZSTD库
-RUN set -eux; \
-    cd /tmp; \
-    wget -O zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/refs/tags/v${ZSTD_VERSION}.tar.gz; \
-    tar -zxf zstd-${ZSTD_VERSION}.tar.gz; \
-    cd zstd-${ZSTD_VERSION}; \
-    make clean; \
-    CFLAGS="-fPIC -O2" CXXFLAGS="-fPIC -O2" make -j$(nproc); \
-    make PREFIX=/usr/local install; \
-    ldconfig; \
-    rm -rf /tmp/zstd-${ZSTD_VERSION} /tmp/zstd-${ZSTD_VERSION}.tar.gz
 
-# 下载并解压Nginx主源码包至指定目录
+# 下载并编译OpenSSL
+RUN set -eux; \
+    OPENSSL_URL="https://github.com/quictls/openssl/archive/refs/tags/openssl-${OPENSSL_VERSION}.tar.gz"; \
+    wget -O /usr/src/openssl-${OPENSSL_VERSION}.tar.gz ${OPENSSL_URL}; \
+    tar -zxf /usr/src/openssl-${OPENSSL_VERSION}.tar.gz -C ${OPENSSL_SRC_DIR} --strip-components=1; \
+    rm -f /usr/src/openssl-${OPENSSL_VERSION}.tar.gz; \
+    cd ${OPENSSL_SRC_DIR}; \
+    ./Configure no-shared zlib -O3 enable-tls1_3 enable-ktls enable-quic linux-x86_64; \
+    make -j$(nproc)
+
+# 下载并解压Nginx主源码包
 RUN set -eux; \
     wget -O ${NGINX_SRC_DIR}/nginx-${NGINX_VERSION}.tar.gz https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz; \
     tar -zxf ${NGINX_SRC_DIR}/nginx-${NGINX_VERSION}.tar.gz -C ${NGINX_SRC_DIR}/src --strip-components=1; \
     rm -f ${NGINX_SRC_DIR}/nginx-${NGINX_VERSION}.tar.gz
 
-# 下载Nginx源码并应用TLS动态记录补丁，优化TLS传输性能
+# 下载并应用TLS动态记录补丁
 RUN set -eux; \
     wget -O ${NGINX_SRC_DIR}/dynamic_tls_records.patch https://raw.githubusercontent.com/nginx-modules/ngx_http_tls_dyn_size/master/${NGX_TLS_DYN_SIZE}; \
     cd ${NGINX_SRC_DIR}/src && patch -p1 < ${NGINX_SRC_DIR}/dynamic_tls_records.patch; \
@@ -145,24 +152,13 @@ RUN set -eux; \
     cd ${NGINX_SRC_DIR}/src; \
     wget -O upstream_check.patch https://raw.githubusercontent.com/yaoweibin/nginx_upstream_check_module/master/check_1.20.1+.patch; \
     patch -p1 < upstream_check.patch || echo "upstream_check补丁适配警告"; \
-    rm -f upstream_check.patch   
+    rm -f upstream_check.patch
 
-# 下载并解压NJS模块至指定目录
-RUN set -eux; \
-    local NJS_TAR="${NGINX_SRC_DIR}/njs-${NJS_VERSION}.tar.gz"; \
-    wget -O ${NJS_TAR} https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz; \
-    tar -zxf ${NJS_TAR} -C ${NGINX_MODULES_DIR}; \
-    mv ${NGINX_MODULES_DIR}/njs-${NJS_VERSION} ${NGINX_MODULES_DIR}/njs; \
-    rm -f ${NJS_TAR}; \
-    [ -d "${NGINX_MODULES_DIR}/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
-
-    
-# 批量克隆所有Nginx第三方模块，初始化子模块并清理git缓存
+# 批量克隆Nginx第三方模块，初始化子模块并清理缓存
 RUN set -eux; \
     git_clone() { \
         local repo_url="$1"; local target_dir="$2"; local branch="$3"; \
-        git clone --depth 1 --branch "${branch}" "${repo_url}" "${target_dir}" || \
-        (git clone --depth 1 --branch "${branch}" "${repo_url}" "${target_dir}"); \
+        git clone --depth 1 --branch "${branch}" "${repo_url}" "${target_dir}" || git clone --depth 1 --branch "${branch}" "${repo_url}" "${target_dir}"; \
     }; \
     git_clone https://github.com/vision5/ngx_devel_kit.git ${NGINX_MODULES_DIR}/ngx_devel_kit master; \
     git_clone https://github.com/vozlt/nginx-module-vts.git ${NGINX_MODULES_DIR}/nginx-module-vts master; \
@@ -194,8 +190,7 @@ RUN set -eux; \
     cd ${NGINX_MODULES_DIR}/ngx_brotli && git submodule update --init; \
     find ${NGINX_MODULES_DIR} -name ".git" -type d -exec rm -rf {} \;
 
-
-# 配置、编译并安装Nginx，加载所有第三方模块
+# 配置、编译并安装Nginx
 WORKDIR ${NGINX_SRC_DIR}/src
 RUN set -eux; \
 ./configure \
@@ -289,9 +284,8 @@ cd /etc/nginx/modules-available \
   echo "load_module $module;" >$module_name.load; \
 done
 
-# 运行阶段：构建精简的Nginx运行镜像
+# 运行阶段：构建Nginx运行镜像
 FROM debian:bookworm-slim AS nginx-run
-
 ARG NGINX_VERSION
 ARG OPENSSL_VERSION
 
@@ -299,7 +293,7 @@ ARG OPENSSL_VERSION
 LABEL maintainer="liubei66 <1967780821@qq.com>"
 LABEL description="Nginx ${NGINX_VERSION} with OpenSSL ${OPENSSL_VERSION} + custom modules + PCRE2 JIT + Jemalloc + kTLS"
 
-# 安装运行时依赖包，创建运行用户与目录，配置系统库加载路径
+# 安装运行依赖，创建运行用户及目录
 RUN set -eux; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https libzmq5 \
@@ -317,15 +311,15 @@ RUN set -eux; \
     chown -R nginx:nginx /var/lib/nginx /run/nginx /var/log/nginx; \
     chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx;
 
-# 从构建阶段复制编译完成的Nginx程序与依赖库
+# 复制编译产物至运行镜像
 COPY --from=nginx-build /usr/sbin/nginx /usr/sbin/nginx
 COPY --from=nginx-build /usr/lib/nginx /usr/lib/nginx
 COPY --from=nginx-build /etc/nginx /etc/nginx
 COPY --from=nginx-build /var/lib/nginx /var/lib/nginx
 COPY --from=nginx-build /usr/local/lib /usr/local/lib
 
-# 暴露Nginx服务端口
+# 暴露服务端口
 EXPOSE 80 443 443/udp
 
-# 启动Nginx服务，以前台方式运行
+# 启动Nginx服务
 CMD ["sh", "-c", "nginx -g 'daemon off;'"]
