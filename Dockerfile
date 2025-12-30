@@ -47,7 +47,7 @@ RUN set -eux; \
     libperl-dev libbrotli-dev libzmq3-dev liblua5.1-dev libyaml-dev libxml2-dev \
     libcurl4-openssl-dev libjansson-dev libmagic-dev libtar-dev libmaxminddb-dev \
     libxslt-dev libgd-dev libgeoip-dev libperl-dev libmail-dkim-perl libjwt-dev \
-    libnginx-mod-http-dav-ext libpcre2-dev libjemalloc-dev; \
+    libnginx-mod-http-dav-ext libpcre2-dev libjemalloc-dev binutils; \
     apt-get purge -y libssl-dev; \
     update-ca-certificates; \
     rm -rf /var/lib/apt/lists/*; \
@@ -382,6 +382,10 @@ make install; \
 /usr/sbin/nginx -V; \
 make clean && rm -rf /etc/nginx/modules-enabled/* ${OPENSSL_SRC_DIR} && \
   cd /etc/nginx/modules-available \
+  && strip -s /usr/sbin/nginx && strip -s /usr/lib/nginx/modules/*.so \
+  && strip -s /usr/local/lib/*.so \
+  && find /usr/lib /usr/local/lib -name "*.a" -delete \
+  && find /usr/lib /usr/local/lib -name "*.la" -delete \
   && for module in /usr/lib/nginx/modules/*.so; do \
   module_name=$(basename $module .so); \
   echo "load_module $module;" >$module_name.load; \
@@ -400,11 +404,11 @@ LABEL description="Nginx ${NGINX_VERSION} with OpenSSL ${OPENSSL_VERSION} + cust
 RUN set -eux; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
-        libpcre3 libpcre2-8-0 zlib1g libxslt1.1 libgd3 libgeoip1 libperl5.36 \
-        libbrotli1 libzmq5 liblua5.1-0 libyaml-0-2 libxml2 libcurl3-gnutls \
-        libjansson4 libmagic1 libtar0 libmaxminddb0 libjemalloc2 curl \
-        iproute2 procps lsof dnsutils net-tools less jq \
-        vim-tiny wget htop tcpdump strace rsync telnet; \
+        #libpcre3 libpcre2-8-0 zlib1g libxslt1.1 libgd3 libgeoip1 libperl5.36 \
+        #libbrotli1 libzmq5 liblua5.1-0 libyaml-0-2 libxml2 libcurl3-gnutls \
+        #libjansson4 libmagic1 libtar0 libmaxminddb0 libjemalloc2 \
+        curl iproute2 procps lsof dnsutils net-tools less jq \
+        vim wget htop tcpdump strace telnet; \
     update-ca-certificates; \
     rm -f /etc/apt/sources.list.d/*; \
     echo "deb https://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
@@ -431,7 +435,6 @@ COPY --from=nginx-build /usr/lib/nginx /usr/lib/nginx
 COPY --from=nginx-build /etc/nginx /etc/nginx
 COPY --from=nginx-build /var/lib/nginx /var/lib/nginx
 COPY --from=nginx-build /usr/local /usr/local
-COPY --from=nginx-build /etc/ld.so.conf.d/ /etc/ld.so.conf.d/
 
 # 暴露端口
 EXPOSE 80 443 443/udp
