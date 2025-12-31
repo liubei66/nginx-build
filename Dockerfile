@@ -327,4 +327,6 @@ EXPOSE 80 443 443/udp
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
+STOPSIGNAL SIGQUIT
+
 CMD ["nginx", "-g", "daemon off;"]
