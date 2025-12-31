@@ -312,8 +312,8 @@ RUN set -eux; \
     echo "deb https://mirrors.aliyun.com/debian/ bookworm-backports main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
     echo "deb https://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
     rm -rf /var/lib/apt/lists/* ; \
-    groupadd --system --gid 101 nginx && useradd --system --gid nginx --no-create-home --home /nonexistent --comment "nginx user" --shell /bin/false --uid 101 nginx; \
     mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi /run/nginx /etc/nginx/conf.d /var/log/nginx /docker-entrypoint.d; \
+    groupadd -r nginx && useradd -r -g nginx -s /sbin/nologin -d /var/lib/nginx nginx; \
     chown -R nginx:nginx /var/lib/nginx /run/nginx /var/log/nginx; \
     chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx; \
     chmod +x /docker-entrypoint.sh && \
