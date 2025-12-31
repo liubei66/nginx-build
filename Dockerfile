@@ -235,7 +235,6 @@ RUN set -eux; \
   --with-stream_realip_module \
   --with-stream_geoip_module=dynamic \
   --with-stream_ssl_preread_module \
-  --with-openssl-opt="enable-ktls" \
   --with-cc-opt="-O3 -flto -I${LUAJIT_INC} -I${NGINX_MODULES_DIR}/quickjs -I/usr/local/include -I${OPENSSL_SRC_DIR}/include -I/usr/include" \
   --with-ld-opt="-L${LUAJIT_LIB} -L/usr/local/lib -L${OPENSSL_SRC_DIR} -L${NGINX_MODULES_DIR}/quickjs -Wl,-rpath,/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc -Wl,-Bsymbolic-functions -flto" \
   --add-dynamic-module=${NGINX_MODULES_DIR}/njs/nginx \
@@ -289,12 +288,24 @@ ARG OPENSSL_VERSION
 LABEL maintainer="liubei66 <1967780821@qq.com>"
 LABEL description="Nginx ${NGINX_VERSION} with OpenSSL ${OPENSSL_VERSION} + custom modules + PCRE2 JIT + Jemalloc + kTLS"
 
+
+
+# 复制编译产物至运行镜像
+COPY --from=nginx-build /usr/sbin/nginx /usr/sbin/nginx
+COPY --from=nginx-build /usr/lib/nginx /usr/lib/nginx
+COPY --from=nginx-build /etc/nginx /etc/nginx
+COPY --from=nginx-build /usr/local/lib /usr/local/lib
+
+COPY docker-entrypoint.d /docker-entrypoint.d
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+
+
 # 安装运行依赖，创建运行用户及目录
 RUN set -eux; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https libzmq5 \
         curl iproute2 procps lsof dnsutils net-tools less jq \
-        vim wget htop tcpdump strace telnet; \
+        vim wget htop tcpdump strace telnet gettext-base; \
     update-ca-certificates; \
     rm -f /usr/lib/apt/sources.list.d/*; \
     echo "deb https://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
@@ -302,20 +313,19 @@ RUN set -eux; \
     echo "deb https://mirrors.aliyun.com/debian/ bookworm-backports main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
     echo "deb https://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
     rm -rf /var/lib/apt/lists/* ; \
-    groupadd -r nginx && useradd -r -g nginx -s /sbin/nologin -d /var/lib/nginx nginx; \
-    mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi /run/nginx /etc/nginx/conf.d /var/log/nginx; \
+    groupadd --system --gid 101 nginx && useradd --system --gid nginx --no-create-home --home /nonexistent --comment "nginx user" --shell /bin/false --uid 101 nginx; \
+    mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi /run/nginx /etc/nginx/conf.d /var/log/nginx /docker-entrypoint.d; \
     chown -R nginx:nginx /var/lib/nginx /run/nginx /var/log/nginx; \
-    chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx;
+    chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx; \
+    chmod +x /docker-entrypoint.sh && \
+    chmod +x /docker-entrypoint.d/*.sh; \
+    ln -sf /dev/stdout /var/log/nginx/access.log && \
+    ln -sf /dev/stderr /var/log/nginx/error.log
 
-# 复制编译产物至运行镜像
-COPY --from=nginx-build /usr/sbin/nginx /usr/sbin/nginx
-COPY --from=nginx-build /usr/lib/nginx /usr/lib/nginx
-COPY --from=nginx-build /etc/nginx /etc/nginx
-COPY --from=nginx-build /var/lib/nginx /var/lib/nginx
-COPY --from=nginx-build /usr/local/lib /usr/local/lib
 
 # 暴露服务端口
 EXPOSE 80 443 443/udp
 
-# 启动Nginx服务
+ENTRYPOINT ["/docker-entrypoint.sh"]
+
 CMD ["nginx", "-g", "daemon off;"]
