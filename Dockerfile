@@ -37,6 +37,9 @@ ARG NGX_TLS_DYN_SIZE
 # 配置编译环境变量
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
     GIT_SSL_NO_VERIFY=1 \
+    CFLAGS="-fPIC -O2 -Os -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fno-plt" \
+    CXXFLAGS="-fPIC -O2 -Os -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
+    LDFLAGS="-Wl,--as-needed,-O1,--sort-common -Wl,-z,pack-relative-relocs -Wl,-z,relro,-z,now -Wl,--gc-sections" \
     MAKEFLAGS="-j$(nproc)"
 
 # 安装编译依赖包，创建工作目录，配置系统库加载路径
@@ -63,7 +66,7 @@ RUN set -eux; \
     tar -zxf zstd-${ZSTD_VERSION}.tar.gz; \
     cd zstd-${ZSTD_VERSION}; \
     make clean; \
-    CFLAGS="-fPIC -O2" CXXFLAGS="-fPIC -O2" make -j$(nproc); \
+    make -j$(nproc); \
     make PREFIX=/usr/local install; \
     ldconfig; \
     rm -rf /tmp/zstd-${ZSTD_VERSION} /tmp/zstd-${ZSTD_VERSION}.tar.gz
@@ -118,7 +121,7 @@ RUN set -eux; \
 RUN set -eux; \
     git clone https://github.com/bellard/quickjs ${NGINX_MODULES_DIR}/quickjs; \
     cd ${NGINX_MODULES_DIR}/quickjs; \
-    CFLAGS='-fPIC' make libquickjs.a
+    make libquickjs.a
 
 # 下载并编译OpenSSL
 RUN set -eux; \
@@ -234,8 +237,8 @@ RUN set -eux; \
   --with-stream_realip_module \
   --with-stream_geoip_module=dynamic \
   --with-stream_ssl_preread_module \
-  --with-cc-opt="-O2 -flto -I${LUAJIT_INC} -I${NGINX_MODULES_DIR}/quickjs -I${OPENSSL_SRC_DIR}/include -I/usr/local/include -I/usr/include" \
-  --with-ld-opt="-L${LUAJIT_LIB} -L${OPENSSL_SRC_DIR} -L${NGINX_MODULES_DIR}/quickjs -L/usr/local/lib -Wl,-rpath,/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc -Wl,-Bsymbolic-functions -flto" \
+  --with-cc-opt="${CFLAGS} -I${LUAJIT_INC} -I${NGINX_MODULES_DIR}/quickjs -I${OPENSSL_SRC_DIR}/include -I/usr/local/include -I/usr/include" \
+  --with-ld-opt="${LDFLAGS} -L${LUAJIT_LIB} -L${OPENSSL_SRC_DIR} -L${NGINX_MODULES_DIR}/quickjs -L/usr/local/lib -Wl,-rpath,/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc" \
   --add-dynamic-module=${NGINX_MODULES_DIR}/njs/nginx \
   --add-dynamic-module=${NGINX_MODULES_DIR}/ngx_devel_kit \
   --add-dynamic-module=${NGINX_MODULES_DIR}/nginx-module-vts \
