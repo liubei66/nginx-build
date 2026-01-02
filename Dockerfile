@@ -303,7 +303,7 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN set -eux; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https libzmq5 \
-        curl iproute2 procps lsof dnsutils net-tools less jq \
+        curl iproute2 procps lsof dnsutils net-tools less jq iputils-ping \
         vim wget htop tcpdump strace telnet gettext-base; \
     update-ca-certificates; \
     rm -f /usr/lib/apt/sources.list.d/*; \
