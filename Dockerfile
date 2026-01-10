@@ -1,17 +1,12 @@
 # 全局构建版本与路径参数定义
 ARG NGINX_VERSION=1.29.4
 ARG NJS_VERSION=0.9.4
-
-# Nginx源码根目录，统一管理所有源码相关文件
 ARG NGINX_SRC_DIR=/usr/src/nginx
-# Nginx模块存放目录，基于源码根目录关联定义
 ARG NGINX_MODULES_DIR=${NGINX_SRC_DIR}/modules
-
 ARG PCRE2_VERSION=10.47
 ARG JEMALLOC_VERSION=5.3.0
 ARG ZSTD_VERSION=1.5.7
 ARG LUAJIT_VERSION=2.1-20250826
-
 ARG LUAJIT_INC=/usr/local/include/luajit-2.1
 ARG LUAJIT_LIB=/usr/local/lib
 ARG OPENSSL_VERSION=3.5.4
@@ -19,7 +14,7 @@ ARG OPENSSL_SRC_DIR=/usr/src/openssl
 ARG NGX_TLS_DYN_SIZE=nginx__dynamic_tls_records_1.29.2+.patch
 
 # 构建阶段：编译Nginx及所有依赖组件与模块
-FROM debian:bookworm-slim AS nginx-build
+FROM alpine:3.19 AS nginx-build
 ARG NGINX_VERSION
 ARG NJS_VERSION
 ARG LUAJIT_VERSION
@@ -34,7 +29,7 @@ ARG NGINX_SRC_DIR
 ARG NGINX_MODULES_DIR
 ARG NGX_TLS_DYN_SIZE
 
-# 配置编译环境变量
+# 配置编译环境变量，优化编译参数并指定库路径
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
     GIT_SSL_NO_VERIFY=1 \
     CFLAGS="-fPIC -O2 -Os -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fno-plt" \
@@ -42,24 +37,20 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
     LDFLAGS="-Wl,--as-needed,-O1,--sort-common -Wl,-z,pack-relative-relocs -Wl,-z,relro,-z,now -Wl,--gc-sections" \
     MAKEFLAGS="-j$(nproc)"
 
-# 安装编译依赖包，创建工作目录，配置系统库加载路径
+# 安装编译所需基础工具链与依赖库，清理缓存并创建工作目录
 RUN set -eux; \
-    apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
-    wget git gcc g++ make patch unzip libtool autoconf \
-    libpcre3-dev zlib1g-dev libgeoip-dev libperl-dev \
-    libbrotli-dev libzmq3-dev liblua5.1-dev libyaml-dev libxml2-dev \
-    libcurl4-openssl-dev libjansson-dev libmagic-dev libtar-dev libmaxminddb-dev \
-    libxslt-dev libgd-dev libmail-dkim-perl libjwt-dev \
-    libnginx-mod-http-dav-ext libpcre2-dev libjemalloc-dev binutils; \
-    apt-get purge -y libssl-dev; \
-    update-ca-certificates; \
-    rm -rf /var/lib/apt/lists/*; \
+    apk update && apk add --no-cache \
+    ca-certificates wget git gcc g++ make patch unzip libtool autoconf automake \
+    zlib-dev libgeoip-dev perl-dev brotli-dev zeromq-dev lua5.1-dev yaml-dev libxml2-dev \
+    curl-dev jansson-dev file-dev libtar-dev maxminddb-dev libxslt-dev gd-dev \
+    mail-dkim perl-io-socket-ssl libjwt-dev pcre2-dev jemalloc-dev binutils \
+    linux-headers musl-dev pkgconf zlib-static brotli-static \
+    openssh-client coreutils; \
+    rm -rf /var/cache/apk/*; \
     mkdir -p ${NGINX_SRC_DIR}/src ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib; \
-    chmod -R 755 ${NGINX_SRC_DIR} ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib; \
-    echo "/usr/local/lib" > /etc/ld.so.conf.d/global-libs.conf && ldconfig
+    chmod -R 755 ${NGINX_SRC_DIR} ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib;
 
-# 下载、解压并编译ZSTD库
+# 下载、编译并安装ZSTD压缩库，清理临时文件
 RUN set -eux; \
     cd /tmp; \
     wget -O zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/refs/tags/v${ZSTD_VERSION}.tar.gz; \
@@ -68,10 +59,9 @@ RUN set -eux; \
     make clean; \
     make -j$(nproc); \
     make PREFIX=/usr/local install; \
-    ldconfig; \
     rm -rf /tmp/zstd-${ZSTD_VERSION} /tmp/zstd-${ZSTD_VERSION}.tar.gz
 
-# 下载并解压NJS模块
+# 下载并解压NJS模块，验证模块目录有效性
 RUN set -eux; \
     NJS_TAR="${NGINX_SRC_DIR}/njs-${NJS_VERSION}.tar.gz"; \
     wget -O ${NJS_TAR} https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz; \
@@ -80,7 +70,7 @@ RUN set -eux; \
     rm -f ${NJS_TAR}; \
     [ -d "${NGINX_MODULES_DIR}/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
 
-# 下载、解压并安装LuaJIT
+# 下载、编译并安装LuaJIT，清理安装包
 RUN set -eux; \
     LUAJIT_TAR="LuaJIT-${LUAJIT_VERSION}.tar.gz"; \
     LUAJIT_URL="https://github.com/openresty/luajit2/archive/refs/tags/v${LUAJIT_VERSION}.tar.gz"; \
@@ -89,10 +79,9 @@ RUN set -eux; \
     mv ${NGINX_MODULES_DIR}/luajit2-${LUAJIT_VERSION} ${NGINX_MODULES_DIR}/luajit; \
     cd ${NGINX_MODULES_DIR}/luajit; \
     make PREFIX=/usr/local install; \
-    ldconfig; \
     rm -rf ${NGINX_SRC_DIR}/${LUAJIT_TAR}
 
-# 下载、解压并编译PCRE2库
+# 下载、编译并安装PCRE2正则库，清理临时文件
 RUN set -eux; \
     cd /tmp; \
     wget -O pcre2-${PCRE2_VERSION}.tar.gz https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz; \
@@ -101,10 +90,9 @@ RUN set -eux; \
     ./configure --prefix=/usr/local --enable-jit --enable-pcre2-16 --enable-pcre2-32 --enable-unicode --with-pic; \
     make -j$(nproc); \
     make install; \
-    ldconfig; \
     rm -rf /tmp/pcre2-${PCRE2_VERSION} /tmp/pcre2-${PCRE2_VERSION}.tar.gz
 
-# 下载、解压并编译Jemalloc库
+# 下载、编译并安装Jemalloc内存分配库，清理临时文件
 RUN set -eux; \
     cd /tmp; \
     wget -O jemalloc-${JEMALLOC_VERSION}.tar.gz https://github.com/jemalloc/jemalloc/archive/refs/tags/${JEMALLOC_VERSION}.tar.gz; \
@@ -114,16 +102,15 @@ RUN set -eux; \
     ./configure --prefix=/usr/local --with-pic; \
     make -j$(nproc); \
     make install; \
-    ldconfig; \
     rm -rf /tmp/jemalloc-${JEMALLOC_VERSION} /tmp/jemalloc-${JEMALLOC_VERSION}.tar.gz
 
-# 下载、编译并部署QuickJS引擎
+# 克隆QuickJS引擎源码并编译生成静态库
 RUN set -eux; \
     git clone https://github.com/bellard/quickjs ${NGINX_MODULES_DIR}/quickjs; \
     cd ${NGINX_MODULES_DIR}/quickjs; \
     make libquickjs.a
 
-# 下载并编译OpenSSL
+# 下载、解压并编译OpenSSL，清理安装包
 RUN set -eux; \
     OPENSSL_URL="https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz"; \
     wget -O /usr/src/openssl-${OPENSSL_VERSION}.tar.gz ${OPENSSL_URL}; \
@@ -133,26 +120,26 @@ RUN set -eux; \
     ./Configure no-shared zlib -O3 enable-tls1_3 enable-ktls enable-quic linux-x86_64; \
     make -j$(nproc)
 
-# 下载并解压Nginx主源码包
+# 下载并解压Nginx主源码包，清理安装包
 RUN set -eux; \
     wget -O ${NGINX_SRC_DIR}/nginx-${NGINX_VERSION}.tar.gz https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz; \
     tar -zxf ${NGINX_SRC_DIR}/nginx-${NGINX_VERSION}.tar.gz -C ${NGINX_SRC_DIR}/src --strip-components=1; \
     rm -f ${NGINX_SRC_DIR}/nginx-${NGINX_VERSION}.tar.gz
 
-# 下载并应用TLS动态记录补丁
+# 下载并应用TLS动态记录补丁，清理补丁文件
 RUN set -eux; \
     wget -O ${NGINX_SRC_DIR}/dynamic_tls_records.patch https://raw.githubusercontent.com/nginx-modules/ngx_http_tls_dyn_size/master/${NGX_TLS_DYN_SIZE}; \
     cd ${NGINX_SRC_DIR}/src && patch -p1 < ${NGINX_SRC_DIR}/dynamic_tls_records.patch; \
     rm -f ${NGINX_SRC_DIR}/dynamic_tls_records.patch
 
-# 下载并应用upstream_check模块补丁
+# 下载并应用upstream_check模块补丁，清理补丁文件
 RUN set -eux; \
     cd ${NGINX_SRC_DIR}/src; \
     wget -O upstream_check.patch https://raw.githubusercontent.com/yaoweibin/nginx_upstream_check_module/master/check_1.20.1+.patch; \
     patch -p1 < upstream_check.patch || echo "upstream_check补丁适配警告"; \
     rm -f upstream_check.patch
 
-# 批量克隆Nginx第三方模块，初始化子模块并清理缓存
+# 批量克隆Nginx第三方功能模块，初始化子模块
 RUN set -eux; \
     git_clone() { \
         local repo_url="$1"; local target_dir="$2"; local branch="$3"; \
@@ -187,7 +174,7 @@ RUN set -eux; \
     git_clone https://github.com/HanadaLee/ngx_http_upstream_check_module.git ${NGINX_MODULES_DIR}/ngx_upstream_check master; \
     cd ${NGINX_MODULES_DIR}/ngx_brotli && git submodule update --init;
 
-# 配置、编译并安装Nginx
+# 配置Nginx编译参数，编译并安装Nginx，清理编译产物并优化二进制文件
 WORKDIR ${NGINX_SRC_DIR}/src
 RUN set -eux; \
 ./configure \
@@ -281,40 +268,34 @@ cd /etc/nginx/modules-available \
   echo "load_module $module;" >$module_name.load; \
 done
 
-# 运行阶段：构建Nginx运行镜像
-FROM debian:bookworm-slim AS nginx-run
+# 运行阶段：构建轻量化Nginx运行镜像
+FROM alpine:3.19 AS nginx-run
 ARG NGINX_VERSION
 ARG OPENSSL_VERSION
 
-# 设置镜像标签信息
+# 设置镜像元数据信息
 LABEL maintainer="liubei66 <1967780821@qq.com>"
-LABEL description="Nginx ${NGINX_VERSION} with OpenSSL ${OPENSSL_VERSION} + custom modules + PCRE2 JIT + Jemalloc + kTLS"
+LABEL description="Nginx ${NGINX_VERSION} with OpenSSL ${OPENSSL_VERSION} + custom modules + PCRE2 JIT + Jemalloc + kTLS (Alpine Edition)"
 
-
-
-# 复制编译产物至运行镜像
+# 从编译阶段复制Nginx编译产物与自定义库
 COPY --from=nginx-build /usr/sbin/nginx /usr/sbin/nginx
 COPY --from=nginx-build /usr/lib/nginx /usr/lib/nginx
 COPY --from=nginx-build /etc/nginx /etc/nginx
 COPY --from=nginx-build /usr/local/lib /usr/local/lib
 
+# 复制入口脚本与脚本目录
 COPY docker-entrypoint.d /docker-entrypoint.d
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 
-
-# 安装运行依赖，创建运行用户及目录
+# 安装运行时必需依赖与工具，配置镜像源，创建运行目录与用户，配置日志重定向
 RUN set -eux; \
-    apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates apt-transport-https libzmq5 \
-        curl iproute2 procps lsof dnsutils net-tools less jq iputils-ping \
-        vim wget htop tcpdump strace telnet gettext-base tini; \
-    update-ca-certificates; \
-    rm -f /usr/lib/apt/sources.list.d/*; \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm-backports main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    echo "deb https://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    rm -rf /var/lib/apt/lists/* ; \
+    apk update && apk add --no-cache \
+    ca-certificates libzmq curl iproute2 procps lsof bind-tools net-tools less jq \
+    iputils-ping vim wget htop tcpdump strace telnet gettext tini \
+    tzdata; \
+    rm -rf /var/cache/apk/*; \
+    echo "https://mirrors.aliyun.com/alpine/v3.19/main/" > /etc/apk/repositories; \
+    echo "https://mirrors.aliyun.com/alpine/v3.19/community/" >> /etc/apk/repositories; \
     mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi /run/nginx /etc/nginx/conf.d /var/log/nginx /docker-entrypoint.d; \
     groupadd -r nginx && useradd -r -g nginx -s /sbin/nologin -d /var/lib/nginx nginx; \
     chown -R nginx:nginx /var/lib/nginx /run/nginx /var/log/nginx; \
@@ -322,14 +303,17 @@ RUN set -eux; \
     chmod +x /docker-entrypoint.sh && \
     chmod +x /docker-entrypoint.d/*.sh; \
     ln -sf /dev/stdout /var/log/nginx/access.log && \
-    ln -sf /dev/stderr /var/log/nginx/error.log
+    ln -sf /dev/stderr /var/log/nginx/error.log;
 
-
-# 暴露服务端口
+# 暴露Nginx服务默认端口
 EXPOSE 80 443 443/udp
 
-ENTRYPOINT ["tini", "--"]
+# 配置容器入口点
+ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]
 
+# 配置Nginx停止信号
 STOPSIGNAL SIGQUIT
+
+# 配置容器默认启动命令
 
 CMD ["/docker-entrypoint.sh", "nginx", "-s", "daemon off;"]
