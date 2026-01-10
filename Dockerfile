@@ -307,7 +307,7 @@ RUN set -eux; \
     apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates apt-transport-https libzmq5 \
         curl iproute2 procps lsof dnsutils net-tools less jq iputils-ping \
-        vim wget htop tcpdump strace telnet gettext-base; \
+        vim wget htop tcpdump strace telnet gettext-base tini; \
     update-ca-certificates; \
     rm -f /usr/lib/apt/sources.list.d/*; \
     echo "deb https://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
@@ -328,8 +328,8 @@ RUN set -eux; \
 # 暴露服务端口
 EXPOSE 80 443 443/udp
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]
 
 STOPSIGNAL SIGQUIT
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["nginx"]
