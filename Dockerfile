@@ -291,8 +291,8 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 # 安装运行时必需依赖与工具，配置镜像源，创建运行目录与用户，配置日志重定向
 RUN set -eux; \
     apk update && apk add --no-cache \
-    ca-certificates libzmq curl iproute2 procps lsof bind-tools net-tools less jq \
-    iputils-ping vim wget htop tcpdump strace telnet gettext tini tzdata; \
+    ca-certificates busybox-extras libzmq curl procps net-tools jq \
+    wget htop tcpdump gettext tini tzdata; \
     rm -rf /var/cache/apk/*; \
     echo "https://mirrors.aliyun.com/alpine/v3.19/main/" > /etc/apk/repositories; \
     echo "https://mirrors.aliyun.com/alpine/v3.19/community/" >> /etc/apk/repositories; \
