@@ -256,7 +256,7 @@ RUN set -eux; \
 make -j$(nproc); \
 make install; \
 /usr/sbin/nginx -V; \
-make clean && rm -rf /etc/nginx/modules-enabled/* ${OPENSSL_SRC_DIR}; \
+make clean && mkdir -p /etc/nginx/modules-enabled && rm -rf /etc/nginx/modules-enabled/*; \
 strip -s /usr/sbin/nginx && strip -s /usr/lib/nginx/modules/*.so \
 && strip -s /usr/local/lib/*.so \
 && find /usr/lib /usr/local/lib -name "*.a" -delete \
@@ -314,4 +314,4 @@ STOPSIGNAL SIGQUIT
 
 # 配置容器默认启动命令
 
-CMD ["/docker-entrypoint.sh", "nginx", "-s", "daemon off;"]
+CMD ["/docker-entrypoint.sh", "nginx", "-g", "daemon off;"]
