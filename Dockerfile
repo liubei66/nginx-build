@@ -191,7 +191,7 @@ RUN set -eux; \
 WORKDIR ${NGINX_SRC_DIR}/src
 RUN set -eux; \
 ./configure \
-  --prefix=/etc/nginx \
+  --prefix=/var/lib/nginx \
   --sbin-path=/usr/sbin/nginx \
   --modules-path=/usr/lib/nginx/modules \
   --conf-path=/etc/nginx/nginx.conf \
