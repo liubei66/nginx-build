@@ -39,13 +39,12 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
 
 # 安装编译所需基础工具链与依赖库，清理缓存并创建工作目录
 RUN set -eux; \
-    apk update && apk add --no-cache \
-    ca-certificates wget git gcc g++ make patch unzip libtool autoconf automake \
-    zlib-dev libgeoip-dev perl-dev brotli-dev zeromq-dev lua5.1-dev yaml-dev libxml2-dev \
-    curl-dev jansson-dev file-dev libtar-dev maxminddb-dev libxslt-dev gd-dev \
-    mail-dkim perl-io-socket-ssl libjwt-dev pcre2-dev jemalloc-dev binutils \
-    linux-headers musl-dev pkgconf zlib-static brotli-static \
-    openssh-client coreutils; \
+    apk add --no-cache \
+        ca-certificates build-base patch cmake git libtool autoconf automake ninja \
+        zlib-dev pcre2-dev linux-headers libxml2-dev libxslt-dev perl-dev \
+        curl-dev geoip-dev libmaxminddb-dev libatomic_ops-dev libunwind-dev \
+        brotli-dev zeromq-dev yaml-dev gd-dev openssl-dev luajit-dev jansson-dev \
+        file-dev libfuzzy2-dev go wget tar gzip xz; \
     rm -rf /var/cache/apk/*; \
     mkdir -p ${NGINX_SRC_DIR}/src ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib; \
     chmod -R 755 ${NGINX_SRC_DIR} ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib;
@@ -291,8 +290,7 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN set -eux; \
     apk update && apk add --no-cache \
     ca-certificates libzmq curl iproute2 procps lsof bind-tools net-tools less jq \
-    iputils-ping vim wget htop tcpdump strace telnet gettext tini \
-    tzdata; \
+    iputils-ping vim wget htop tcpdump strace telnet gettext tini tzdata; \
     rm -rf /var/cache/apk/*; \
     echo "https://mirrors.aliyun.com/alpine/v3.19/main/" > /etc/apk/repositories; \
     echo "https://mirrors.aliyun.com/alpine/v3.19/community/" >> /etc/apk/repositories; \
@@ -309,7 +307,7 @@ RUN set -eux; \
 EXPOSE 80 443 443/udp
 
 # 配置容器入口点
-ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]
+ENTRYPOINT ["tini", "--"]
 
 # 配置Nginx停止信号
 STOPSIGNAL SIGQUIT
