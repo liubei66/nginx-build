@@ -297,7 +297,7 @@ RUN set -eux; \
     echo "https://mirrors.aliyun.com/alpine/v3.19/main/" > /etc/apk/repositories; \
     echo "https://mirrors.aliyun.com/alpine/v3.19/community/" >> /etc/apk/repositories; \
     mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi /run/nginx /etc/nginx/conf.d /var/log/nginx /docker-entrypoint.d; \
-    groupadd -r nginx && useradd -r -g nginx -s /sbin/nologin -d /var/lib/nginx nginx; \
+    addgroup -g 1001 -S nginx && adduser -S -D -H -u 1001 -h /var/lib/nginx -s /sbin/nologin -G nginx nginx; \
     chown -R nginx:nginx /var/lib/nginx /run/nginx /var/log/nginx; \
     chmod -R 755 /var/lib/nginx /run/nginx /var/log/nginx; \
     chmod +x /docker-entrypoint.sh && \
