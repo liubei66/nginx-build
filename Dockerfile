@@ -328,8 +328,8 @@ RUN set -eux; \
 # 暴露服务端口
 EXPOSE 80 443 443/udp
 
-ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]
+ENTRYPOINT ["tini", "--"]
 
 STOPSIGNAL SIGQUIT
 
-CMD ["nginx"]
+CMD ["/docker-entrypoint.sh", "nginx", "-s", "daemon off;"]
