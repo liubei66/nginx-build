@@ -332,4 +332,4 @@ ENTRYPOINT ["tini", "--"]
 
 STOPSIGNAL SIGQUIT
 
-CMD ["/docker-entrypoint.sh", "nginx", "-s", "daemon off;"]
+CMD ["/docker-entrypoint.sh", "nginx", "-g", "daemon off;"]
