@@ -289,7 +289,6 @@ COPY docker-entrypoint.d /docker-entrypoint.d
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY lua /usr/local/share/lua
 
-
 # 安装运行时必需依赖与工具，配置镜像源，创建运行目录与用户，配置日志重定向
 RUN set -eux; \
     apk update && apk add --no-cache \
