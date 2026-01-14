@@ -300,6 +300,8 @@ COPY --from=nginx-build /usr/local/lib /usr/local/lib
 
 COPY docker-entrypoint.d /docker-entrypoint.d
 COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY lua /usr/local/share/lua
+
 
 
 # 安装运行依赖，创建运行用户及目录
