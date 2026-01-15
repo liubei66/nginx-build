@@ -32,9 +32,9 @@ ARG NGX_TLS_DYN_SIZE
 # 配置编译环境变量，优化编译参数并指定库路径
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
     GIT_SSL_NO_VERIFY=1 \
-    CFLAGS="-fPIC -O3 -flto=$(nproc) -DNDEBUG -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fno-plt" \
-    CXXFLAGS="-fPIC -O3 -flto=$(nproc) -DNDEBUG -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fno-plt" \
-    LDFLAGS="-flto=$(nproc) -Wl,--as-needed,-O1,--sort-common -Wl,-z,pack-relative-relocs -Wl,-z,relro,-z,now -Wl,--gc-sections" \
+    CFLAGS="-fPIC -O3 -flto=4 -DNDEBUG -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fno-plt" \
+    CXXFLAGS="-fPIC -O3 -flto=4 -DNDEBUG -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fno-plt" \
+    LDFLAGS="-flto=4 -Wl,--as-needed,-O1,--sort-common -Wl,-z,pack-relative-relocs -Wl,-z,relro,-z,now -Wl,--gc-sections" \
     MAKEFLAGS="-j$(nproc)"
 
 # 安装编译所需基础工具链与依赖库，清理缓存并创建工作目录
