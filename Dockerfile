@@ -32,8 +32,8 @@ ARG NGX_TLS_DYN_SIZE
 # 配置编译环境变量，优化编译参数并指定库路径
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
     GIT_SSL_NO_VERIFY=1 \
-    CFLAGS="-fPIC -O2 -Os -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fno-plt" \
-    CXXFLAGS="-fPIC -O2 -Os -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
+    CFLAGS="-fPIC -O3 -flto -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fno-plt" \
+    CXXFLAGS="-fPIC -O3 -flto -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fno-plt" \
     LDFLAGS="-Wl,--as-needed,-O1,--sort-common -Wl,-z,pack-relative-relocs -Wl,-z,relro,-z,now -Wl,--gc-sections" \
     MAKEFLAGS="-j$(nproc)"
 
