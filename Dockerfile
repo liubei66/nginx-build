@@ -39,8 +39,7 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
     GIT_SSL_NO_VERIFY=1 \
     CFLAGS="-fPIC -O3 -flto=4 -DNDEBUG -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fno-plt" \
     CXXFLAGS="-fPIC -O3 -flto=4 -DNDEBUG -g -ffunction-sections -fdata-sections -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fno-plt" \
-    LDFLAGS="-flto=4 -Wl,--as-needed,-O1,--sort-common -Wl,-z,pack-relative-relocs -Wl,-z,relro,-z,now -Wl,--gc-sections" \
-    MAKEFLAGS="-j$(nproc)"
+    LDFLAGS="-flto=4 -Wl,--as-needed,-O1,--sort-common -Wl,-z,pack-relative-relocs -Wl,-z,relro,-z,now -Wl,--gc-sections"
 
 # 安装编译依赖包，创建工作目录，配置系统库加载路径
 RUN set -eux; \
@@ -111,7 +110,7 @@ RUN set -eux; \
     tar -zxf jemalloc-${JEMALLOC_VERSION}.tar.gz; \
     cd jemalloc-${JEMALLOC_VERSION}; \
     ./autogen.sh; \
-    ./configure --prefix=/usr/local --with-pic; \
+    ./configure --prefix=/usr/local --with-pic --enable-static-tls=yes; \
     make -j$(nproc); \
     make install; \
     ldconfig; \
