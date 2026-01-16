@@ -97,7 +97,7 @@ RUN set -eux; \
     tar -zxf jemalloc-${JEMALLOC_VERSION}.tar.gz; \
     cd jemalloc-${JEMALLOC_VERSION}; \
     ./autogen.sh; \
-    ./configure --prefix=/usr/local; \
+    ./configure --prefix=/usr/local --disable-static; \
     make -j$(nproc); \
     make install; \
     rm -rf /tmp/jemalloc-${JEMALLOC_VERSION} /tmp/jemalloc-${JEMALLOC_VERSION}.tar.gz
