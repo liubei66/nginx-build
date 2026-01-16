@@ -97,7 +97,7 @@ RUN set -eux; \
     tar -zxf jemalloc-${JEMALLOC_VERSION}.tar.gz; \
     cd jemalloc-${JEMALLOC_VERSION}; \
     ./autogen.sh; \
-    ./configure --prefix=/usr/local --disable-static; \
+    ./configure --prefix=/usr/local --with-pic; \
     make -j$(nproc); \
     make install; \
     rm -rf /tmp/jemalloc-${JEMALLOC_VERSION} /tmp/jemalloc-${JEMALLOC_VERSION}.tar.gz
@@ -272,6 +272,8 @@ done
 FROM alpine:3.19 AS nginx-run
 ARG NGINX_VERSION
 ARG OPENSSL_VERSION
+
+ENV LD_PRELOAD=/usr/local/lib/libjemalloc.so.2
 
 # 设置镜像元数据信息
 LABEL maintainer="liubei66 <1967780821@qq.com>"
