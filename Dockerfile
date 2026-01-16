@@ -110,7 +110,7 @@ RUN set -eux; \
     tar -zxf jemalloc-${JEMALLOC_VERSION}.tar.gz; \
     cd jemalloc-${JEMALLOC_VERSION}; \
     ./autogen.sh; \
-    ./configure --prefix=/usr/local --disable-static; \
+    ./configure --prefix=/usr/local --with-pic; \
     make -j$(nproc); \
     make install; \
     ldconfig; \
@@ -237,7 +237,7 @@ RUN set -eux; \
   --with-stream_geoip_module=dynamic \
   --with-stream_ssl_preread_module \
   --with-cc-opt="${CFLAGS} -I${LUAJIT_INC} -I${NGINX_MODULES_DIR}/quickjs -I${OPENSSL_SRC_DIR}/include -I/usr/local/include -I/usr/include" \
-  --with-ld-opt="${LDFLAGS} -L${LUAJIT_LIB} -L${OPENSSL_SRC_DIR} -L${NGINX_MODULES_DIR}/quickjs -L/usr/local/lib -Wl,-rpath,/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc" \
+  --with-ld-opt="${LDFLAGS} -L${OPENSSL_SRC_DIR} -L${NGINX_MODULES_DIR}/quickjs -L/usr/local/lib -Wl,-rpath,/usr/local/lib -lzstd -lquickjs -lssl -lcrypto -lz -lpcre2-8 -ljemalloc" \
   --add-dynamic-module=${NGINX_MODULES_DIR}/njs/nginx \
   --add-dynamic-module=${NGINX_MODULES_DIR}/ngx_devel_kit \
   --add-dynamic-module=${NGINX_MODULES_DIR}/nginx-module-vts \
@@ -284,6 +284,7 @@ done
 FROM debian:bookworm-slim AS nginx-run
 ARG NGINX_VERSION
 ARG OPENSSL_VERSION
+ENV LD_PRELOAD=/usr/local/lib/libjemalloc.so.2
 
 # 设置镜像标签信息
 LABEL maintainer="liubei66 <1967780821@qq.com>"
