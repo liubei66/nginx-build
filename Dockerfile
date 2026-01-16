@@ -110,7 +110,7 @@ RUN set -eux; \
     tar -zxf jemalloc-${JEMALLOC_VERSION}.tar.gz; \
     cd jemalloc-${JEMALLOC_VERSION}; \
     ./autogen.sh; \
-    ./configure --prefix=/usr/local --with-pic; \
+    ./configure --prefix=/usr/local --with-pic --disable-initial-exec-tls; \
     make -j$(nproc); \
     make install; \
     ldconfig; \
@@ -284,7 +284,6 @@ done
 FROM debian:bookworm-slim AS nginx-run
 ARG NGINX_VERSION
 ARG OPENSSL_VERSION
-ENV LD_PRELOAD=/usr/local/lib/libjemalloc.so.2
 
 # 设置镜像标签信息
 LABEL maintainer="liubei66 <1967780821@qq.com>"
