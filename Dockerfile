@@ -7,6 +7,7 @@ ARG PCRE2_VERSION=10.47
 ARG JEMALLOC_VERSION=5.3.0
 ARG ZSTD_VERSION=1.5.7
 ARG LUAJIT_VERSION=2.1-20250826
+ARG VTS_VERSION=0.2.5
 ARG LUAJIT_INC=/usr/local/include/luajit-2.1
 ARG LUAJIT_LIB=/usr/local/lib
 ARG OPENSSL_VERSION=3.5.4
@@ -18,6 +19,7 @@ FROM alpine:3.19 AS nginx-build
 ARG NGINX_VERSION
 ARG NJS_VERSION
 ARG LUAJIT_VERSION
+ARG VTS_VERSION
 ARG LUAJIT_INC
 ARG LUAJIT_LIB
 ARG OPENSSL_VERSION
@@ -124,6 +126,12 @@ RUN set -eux; \
     tar -zxf ${NGINX_SRC_DIR}/nginx-${NGINX_VERSION}.tar.gz -C ${NGINX_SRC_DIR}/src --strip-components=1; \
     rm -f ${NGINX_SRC_DIR}/nginx-${NGINX_VERSION}.tar.gz
 
+# 下载并解压nginx-module-vts源码包
+RUN set -eux; \
+    wget -O ${NGINX_MODULES_DIR}/nginx-module-vts-${VTS_VERSION}.tar.gz https://github.com/vozlt/nginx-module-vts/archive/refs/tags/v${VTS_VERSION}.tar.gz; \
+    mkdir -p ${NGINX_MODULES_DIR}/nginx-module-vts && tar -zxf ${NGINX_MODULES_DIR}/nginx-module-vts-${VTS_VERSION}.tar.gz -C ${NGINX_MODULES_DIR}/nginx-module-vts --strip-components=1; \
+    rm -f ${NGINX_MODULES_DIR}/nginx-module-vts-${VTS_VERSION}.tar.gz
+
 # 下载并应用TLS动态记录补丁，清理补丁文件
 RUN set -eux; \
     wget -O ${NGINX_SRC_DIR}/dynamic_tls_records.patch https://raw.githubusercontent.com/nginx-modules/ngx_http_tls_dyn_size/master/${NGX_TLS_DYN_SIZE}; \
@@ -144,7 +152,6 @@ RUN set -eux; \
         git clone --depth 1 --branch "${branch}" "${repo_url}" "${target_dir}" || git clone --depth 1 --branch "${branch}" "${repo_url}" "${target_dir}"; \
     }; \
     git_clone https://github.com/vision5/ngx_devel_kit.git ${NGINX_MODULES_DIR}/ngx_devel_kit master; \
-    git_clone https://github.com/vozlt/nginx-module-vts.git ${NGINX_MODULES_DIR}/nginx-module-vts master; \
     git_clone https://github.com/Lax/traffic-accounting-nginx-module.git ${NGINX_MODULES_DIR}/traffic-accounting master; \
     git_clone https://github.com/openresty/array-var-nginx-module.git ${NGINX_MODULES_DIR}/array-var master; \
     git_clone https://github.com/nginx-modules/ngx_cache_purge.git ${NGINX_MODULES_DIR}/ngx_cache_purge master; \
