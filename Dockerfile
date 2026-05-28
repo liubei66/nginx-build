@@ -1,6 +1,6 @@
 # 全局构建版本与路径参数定义
-ARG NGINX_VERSION=1.30.1
-ARG NJS_VERSION=0.9.8
+ARG NGINX_VERSION=1.30.2
+ARG NJS_VERSION=0.9.9
 
 # Nginx源码根目录，统一管理所有源码相关文件
 ARG NGINX_SRC_DIR=/usr/src/nginx
