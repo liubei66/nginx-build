@@ -1,5 +1,5 @@
 # 全局构建版本与路径参数定义
-ARG NGINX_VERSION=1.31.3
+ARG NGINX_VERSION=1.31.4
 ARG NJS_VERSION=1.0.0
 
 # Nginx源码根目录，统一管理所有源码相关文件
