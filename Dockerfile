@@ -159,7 +159,7 @@ RUN set -eux; \
     cd ${NGINX_MODULES_DIR}/lua-cjson; \
     make PREFIX=/usr/local \
         LUA_INCLUDE_DIR=/usr/local/include/luajit-2.1; \
-    install -D -m 755 cjson.so ${LUAJIT_LIB}/cjson.so
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
 
 # 下载并编译OpenSSL
 RUN set -eux; \
