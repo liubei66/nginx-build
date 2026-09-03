@@ -154,6 +154,12 @@ RUN set -eux; \
     cd ${NGINX_MODULES_DIR}/lua-resty-redis; \
     make install LUA_LIB_DIR=${LUAJIT_LIB}
 
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-cjson.git ${NGINX_MODULES_DIR}/lua-cjson; \
+    cd ${NGINX_MODULES_DIR}/lua-cjson; \
+    make; \
+    install -D -m 755 cjson.so ${LUAJIT_LIB}/cjson.so; \
+    install -D -m 755 cjson.so ${LUAJIT_LIB}/cjson/safe.so
 
 # 下载并编译OpenSSL
 RUN set -eux; \
