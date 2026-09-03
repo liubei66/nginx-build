@@ -1,6 +1,6 @@
 # 全局构建版本与路径参数定义
-ARG NGINX_VERSION=1.29.4
-ARG NJS_VERSION=0.9.5
+ARG NGINX_VERSION=1.31.4
+ARG NJS_VERSION=1.0.0
 
 # Nginx源码根目录，统一管理所有源码相关文件
 ARG NGINX_SRC_DIR=/usr/src/nginx
@@ -15,7 +15,7 @@ ARG VTS_VERSION=0.2.5
 
 ARG LUAJIT_INC=/usr/local/include/luajit-2.1
 ARG LUAJIT_LIB=/usr/local/lib
-ARG OPENSSL_VERSION=3.5.4
+ARG OPENSSL_VERSION=4.0.1
 ARG OPENSSL_SRC_DIR=/usr/src/openssl
 ARG NGX_TLS_DYN_SIZE=nginx__dynamic_tls_records_1.29.2+.patch
 
