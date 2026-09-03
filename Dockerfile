@@ -344,7 +344,6 @@ COPY --from=nginx-build /usr/local/share/lua /usr/local/share/lua
 
 COPY docker-entrypoint.d /docker-entrypoint.d
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-#COPY lua /usr/local/share/lua
 
 
 
