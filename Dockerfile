@@ -157,13 +157,6 @@ RUN set -eux; \
 RUN set -eux; \
     git clone https://github.com/openresty/lua-cjson.git ${NGINX_MODULES_DIR}/lua-cjson; \
     cd ${NGINX_MODULES_DIR}/lua-cjson; \
-    make; \
-    install -D -m 755 cjson.so ${LUAJIT_LIB}/cjson.so; \
-    install -D -m 755 cjson.so ${LUAJIT_LIB}/cjson/safe.so
-
-RUN set -eux; \
-    git clone https://github.com/openresty/lua-cjson.git ${NGINX_MODULES_DIR}/lua-cjson; \
-    cd ${NGINX_MODULES_DIR}/lua-cjson; \
     make PREFIX=/usr/local \
         LUA_INCLUDE_DIR=/usr/local/include/luajit-2.1; \
     install -D -m 755 cjson.so ${LUAJIT_LIB}/cjson.so
