@@ -127,7 +127,7 @@ RUN set -eux; \
 RUN set -eux; \
     git clone https://github.com/openresty/lua-resty-core.git ${NGINX_MODULES_DIR}/lua-resty-core; \
     cd ${NGINX_MODULES_DIR}/lua-resty-core; \
-    make install
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
 
 # 下载并编译OpenSSL
 RUN set -eux; \
