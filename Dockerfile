@@ -175,6 +175,7 @@ RUN set -eux; \
     git_clone https://github.com/openresty/encrypted-session-nginx-module.git ${NGINX_MODULES_DIR}/encrypted-session master; \
     git_clone https://github.com/openresty/headers-more-nginx-module.git ${NGINX_MODULES_DIR}/headers-more master; \
     git_clone https://github.com/openresty/lua-nginx-module.git ${NGINX_MODULES_DIR}/lua-nginx master; \
+    git_clone https://github.com/openresty/lua-resty-core.git ${NGINX_MODULES_DIR}/lua-resty-core master; \
     git_clone https://github.com/openresty/lua-upstream-nginx-module.git ${NGINX_MODULES_DIR}/lua-upstream master; \
     git_clone https://github.com/openresty/redis2-nginx-module.git ${NGINX_MODULES_DIR}/redis2 master; \
     git_clone https://github.com/openresty/set-misc-nginx-module.git ${NGINX_MODULES_DIR}/set-misc master; \
@@ -302,10 +303,11 @@ COPY --from=nginx-build /usr/sbin/nginx /usr/sbin/nginx
 COPY --from=nginx-build /usr/lib/nginx /usr/lib/nginx
 COPY --from=nginx-build /etc/nginx /etc/nginx
 COPY --from=nginx-build /usr/local/lib /usr/local/lib
+COPY --from=nginx-build /usr/local/share/lua /usr/local/share/lua
 
 COPY docker-entrypoint.d /docker-entrypoint.d
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-COPY lua /usr/local/share/lua
+#COPY lua /usr/local/share/lua
 
 
 
