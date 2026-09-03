@@ -164,7 +164,7 @@ RUN set -eux; \
 RUN set -eux; \
     git clone https://github.com/openresty/lua-cjson.git ${NGINX_MODULES_DIR}/lua-cjson; \
     cd ${NGINX_MODULES_DIR}/lua-cjson; \
-    make; \
+    make clean && make LUAJIT=1 LUA_INCLUDE_DIR=${LUA_INCLUDE_DIR}; \
     install -D -m 755 cjson.so ${LUAJIT_LIB}/cjson.so
 
 # 下载并编译OpenSSL
