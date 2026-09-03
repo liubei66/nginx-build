@@ -122,6 +122,12 @@ RUN set -eux; \
     git clone https://github.com/bellard/quickjs ${NGINX_MODULES_DIR}/quickjs; \
     cd ${NGINX_MODULES_DIR}/quickjs; \
     make libquickjs.a
+    
+# 下载、编译并部署lua modules
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-core.git ${NGINX_MODULES_DIR}/lua-resty-core; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-core; \
+    make install PREFIX=/usr/local
 
 # 下载并编译OpenSSL
 RUN set -eux; \
@@ -175,7 +181,6 @@ RUN set -eux; \
     git_clone https://github.com/openresty/encrypted-session-nginx-module.git ${NGINX_MODULES_DIR}/encrypted-session master; \
     git_clone https://github.com/openresty/headers-more-nginx-module.git ${NGINX_MODULES_DIR}/headers-more master; \
     git_clone https://github.com/openresty/lua-nginx-module.git ${NGINX_MODULES_DIR}/lua-nginx master; \
-    git_clone https://github.com/openresty/lua-resty-core.git ${NGINX_MODULES_DIR}/lua-resty-core master; \
     git_clone https://github.com/openresty/lua-upstream-nginx-module.git ${NGINX_MODULES_DIR}/lua-upstream master; \
     git_clone https://github.com/openresty/redis2-nginx-module.git ${NGINX_MODULES_DIR}/redis2 master; \
     git_clone https://github.com/openresty/set-misc-nginx-module.git ${NGINX_MODULES_DIR}/set-misc master; \
