@@ -129,6 +129,32 @@ RUN set -eux; \
     cd ${NGINX_MODULES_DIR}/lua-resty-core; \
     make install LUA_LIB_DIR=${LUAJIT_LIB}
 
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-lrucache.git ${NGINX_MODULES_DIR}/lua-resty-lrucache; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-lrucache; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-limit-traffic.git ${NGINX_MODULES_DIR}/lua-resty-limit-traffic; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-limit-traffic; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-upstream-healthcheck.git ${NGINX_MODULES_DIR}/lua-resty-upstream-healthcheck; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-upstream-healthcheck; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-mysql.git ${NGINX_MODULES_DIR}/lua-resty-mysql; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-mysql; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-redis.git ${NGINX_MODULES_DIR}/lua-resty-redis; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-redis; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+
 # 下载并编译OpenSSL
 RUN set -eux; \
     OPENSSL_URL="https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz"; \
