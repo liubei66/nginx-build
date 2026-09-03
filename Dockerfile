@@ -14,7 +14,7 @@ ARG LUAJIT_VERSION=2.1-20250826
 ARG VTS_VERSION=0.2.5
 
 ARG LUAJIT_INC=/usr/local/include/luajit-2.1
-ARG LUAJIT_LIB=/usr/local/lib
+ARG LUAJIT_LIB=/usr/local/share/lua/5.1
 ARG OPENSSL_VERSION=4.0.1
 ARG OPENSSL_SRC_DIR=/usr/src/openssl
 ARG NGX_TLS_DYN_SIZE=nginx__dynamic_tls_records_1.29.2+.patch
@@ -164,7 +164,7 @@ RUN set -eux; \
 RUN set -eux; \
     git clone https://github.com/openresty/lua-cjson.git ${NGINX_MODULES_DIR}/lua-cjson; \
     cd ${NGINX_MODULES_DIR}/lua-cjson; \
-    make clean && make LUAJIT=1 LUA_INCLUDE_DIR=${LUA_INCLUDE_DIR}; \
+    make LUA_INCLUDE_DIR=/usr/local/include/luajit-2.1; \
     install -D -m 755 cjson.so ${LUAJIT_LIB}/cjson.so
 
 # 下载并编译OpenSSL
