@@ -155,6 +155,11 @@ RUN set -eux; \
     make install LUA_LIB_DIR=${LUAJIT_LIB}
 
 RUN set -eux; \
+    git clone https://github.com/ledgetech/lua-resty-http.git ${NGINX_MODULES_DIR}/lua-resty-http; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-http; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
     git clone https://github.com/openresty/lua-cjson.git ${NGINX_MODULES_DIR}/lua-cjson; \
     cd ${NGINX_MODULES_DIR}/lua-cjson; \
     make PREFIX=/usr/local \
