@@ -1,6 +1,6 @@
 # 全局构建版本与路径参数定义
-ARG NGINX_VERSION=1.31.4
-ARG NJS_VERSION=1.0.0
+ARG NGINX_VERSION=1.31.5
+ARG NJS_VERSION=1.0.1
 
 # Nginx源码根目录，统一管理所有源码相关文件
 ARG NGINX_SRC_DIR=/usr/src/nginx
@@ -14,7 +14,7 @@ ARG LUAJIT_VERSION=2.1-20250826
 ARG VTS_VERSION=0.2.5
 
 ARG LUAJIT_INC=/usr/local/include/luajit-2.1
-ARG LUAJIT_LIB=/usr/local/lib
+ARG LUAJIT_LIB=/usr/local/share/lua/5.1
 ARG OPENSSL_VERSION=4.0.1
 ARG OPENSSL_SRC_DIR=/usr/src/openssl
 ARG NGX_TLS_DYN_SIZE=nginx__dynamic_tls_records_1.29.2+.patch
@@ -122,6 +122,54 @@ RUN set -eux; \
     git clone https://github.com/bellard/quickjs ${NGINX_MODULES_DIR}/quickjs; \
     cd ${NGINX_MODULES_DIR}/quickjs; \
     make libquickjs.a
+    
+# 下载、编译并部署lua modules
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-core.git ${NGINX_MODULES_DIR}/lua-resty-core; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-core; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-lrucache.git ${NGINX_MODULES_DIR}/lua-resty-lrucache; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-lrucache; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-limit-traffic.git ${NGINX_MODULES_DIR}/lua-resty-limit-traffic; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-limit-traffic; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-upstream-healthcheck.git ${NGINX_MODULES_DIR}/lua-resty-upstream-healthcheck; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-upstream-healthcheck; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-mysql.git ${NGINX_MODULES_DIR}/lua-resty-mysql; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-mysql; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-redis.git ${NGINX_MODULES_DIR}/lua-resty-redis; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-redis; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
+    git clone https://github.com/ledgetech/lua-resty-http.git ${NGINX_MODULES_DIR}/lua-resty-http; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-http; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-resty-string.git ${NGINX_MODULES_DIR}/lua-resty-string; \
+    cd ${NGINX_MODULES_DIR}/lua-resty-string; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
+
+RUN set -eux; \
+    git clone https://github.com/openresty/lua-cjson.git ${NGINX_MODULES_DIR}/lua-cjson; \
+    cd ${NGINX_MODULES_DIR}/lua-cjson; \
+    make PREFIX=/usr/local \
+        LUA_INCLUDE_DIR=/usr/local/include/luajit-2.1; \
+    make install LUA_LIB_DIR=${LUAJIT_LIB}
 
 # 下载并编译OpenSSL
 RUN set -eux; \
@@ -213,6 +261,7 @@ RUN set -eux; \
   --user=nginx \
   --group=nginx \
   --with-threads \
+  --with-control-api \
   --with-file-aio \
   --with-http_ssl_module \
   --with-http_v2_module \
@@ -302,10 +351,10 @@ COPY --from=nginx-build /usr/sbin/nginx /usr/sbin/nginx
 COPY --from=nginx-build /usr/lib/nginx /usr/lib/nginx
 COPY --from=nginx-build /etc/nginx /etc/nginx
 COPY --from=nginx-build /usr/local/lib /usr/local/lib
+COPY --from=nginx-build /usr/local/share/lua /usr/local/share/lua
 
 COPY docker-entrypoint.d /docker-entrypoint.d
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-COPY lua /usr/local/share/lua
 
 
 
