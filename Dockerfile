@@ -261,6 +261,7 @@ RUN set -eux; \
   --user=nginx \
   --group=nginx \
   --with-threads \
+  --with-control-api \
   --with-file-aio \
   --with-http_ssl_module \
   --with-http_v2_module \
