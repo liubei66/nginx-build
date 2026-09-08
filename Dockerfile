@@ -234,7 +234,6 @@ RUN set -eux; \
     git_clone https://github.com/slact/nchan.git ${NGINX_MODULES_DIR}/nchan master; \
     git_clone https://github.com/fdintino/nginx-upload-module.git ${NGINX_MODULES_DIR}/nginx-upload master; \
     git_clone https://github.com/masterzen/nginx-upload-progress-module.git ${NGINX_MODULES_DIR}/nginx-upload-progress master; \
-    git_clone https://github.com/runenyUnidex/nginx-upstream-fair.git ${NGINX_MODULES_DIR}/nginx-upstream-fair master; \
     git_clone https://github.com/HanadaLee/ngx_http_zstd_module.git ${NGINX_MODULES_DIR}/zstd-nginx master; \
     git_clone https://github.com/arut/nginx-rtmp-module.git ${NGINX_MODULES_DIR}/nginx-rtmp master; \
     git_clone https://github.com/HanadaLee/ngx_http_upstream_check_module.git ${NGINX_MODULES_DIR}/ngx_upstream_check master; \
@@ -317,7 +316,6 @@ RUN set -eux; \
   --add-dynamic-module=${NGINX_MODULES_DIR}/set-misc \
   --add-dynamic-module=${NGINX_MODULES_DIR}/nginx-upload \
   --add-dynamic-module=${NGINX_MODULES_DIR}/nginx-upload-progress \
-  --add-dynamic-module=${NGINX_MODULES_DIR}/nginx-upstream-fair \
   --add-dynamic-module=${NGINX_MODULES_DIR}/zstd-nginx \
   --add-dynamic-module=${NGINX_MODULES_DIR}/nginx-rtmp \
   --add-dynamic-module=${NGINX_MODULES_DIR}/ngx_upstream_check; \
