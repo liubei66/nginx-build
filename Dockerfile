@@ -369,7 +369,6 @@ RUN set -eux; \
     echo "deb https://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
     echo "deb https://mirrors.aliyun.com/debian/ bookworm-backports main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
     echo "deb https://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    echo 'deb https://mirrors.aliyun.com/debian/ forky main contrib non-free non-free-firmware' >> /etc/apt/sources.list; \
     rm -rf /var/lib/apt/lists/* ; \
     mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi /run/nginx /etc/nginx/conf.d /var/log/nginx /docker-entrypoint.d; \
     groupadd -r nginx && useradd -r -g nginx -s /sbin/nologin -d /var/lib/nginx nginx; \
