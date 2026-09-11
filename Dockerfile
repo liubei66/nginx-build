@@ -52,7 +52,6 @@ RUN set -eux; \
     libcurl4-openssl-dev libjansson-dev libmagic-dev libtar-dev libmaxminddb-dev \
     libxslt-dev libgd-dev libmail-dkim-perl libjwt-dev \
     libnginx-mod-http-dav-ext libpcre2-dev libjemalloc-dev binutils; \
-    apt-get purge -y libssl-dev; \
     mkdir -p ${NGINX_SRC_DIR}/src ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib; \
     chmod -R 755 ${NGINX_SRC_DIR} ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib; \
     echo "/usr/local/lib" > /etc/ld.so.conf.d/global-libs.conf && ldconfig
@@ -75,8 +74,7 @@ RUN set -eux; \
     wget -O ${NJS_TAR} https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz; \
     tar -zxf ${NJS_TAR} -C ${NGINX_MODULES_DIR}; \
     mv ${NGINX_MODULES_DIR}/njs-${NJS_VERSION} ${NGINX_MODULES_DIR}/njs; \
-    rm -f ${NJS_TAR}; \
-    [ -d "${NGINX_MODULES_DIR}/njs/nginx" ] || (echo "njs模块目录异常，构建失败" && exit 1)
+    rm -f ${NJS_TAR}
 
 # 下载、解压并安装LuaJIT
 RUN set -eux; \
@@ -360,6 +358,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends ca-certificates libzmq5 \
         curl iproute2 procps lsof dnsutils net-tools less jq iputils-ping \
         vim wget htop tcpdump strace telnet gettext-base tini; \
+    sed -i 's/mouse=a/mouse-=a/g' /usr/share/vim/vim90/defaults.vim; \
     rm -f /usr/lib/apt/sources.list.d/*; \
     rm -f /etc/apt/sources.list.d/*; \
     printf '%s\n' \
