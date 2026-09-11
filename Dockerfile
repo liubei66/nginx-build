@@ -45,7 +45,7 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig \
 # 安装编译依赖包，创建工作目录，配置系统库加载路径
 RUN set -eux; \
     apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates apt-transport-https \
+    apt-get install -y --no-install-recommends ca-certificates \
     wget git gcc g++ make patch unzip libtool autoconf \
     libpcre3-dev zlib1g-dev libgeoip-dev libperl-dev \
     libbrotli-dev libzmq3-dev liblua5.1-dev libyaml-dev libxml2-dev \
@@ -53,8 +53,6 @@ RUN set -eux; \
     libxslt-dev libgd-dev libmail-dkim-perl libjwt-dev \
     libnginx-mod-http-dav-ext libpcre2-dev libjemalloc-dev binutils; \
     apt-get purge -y libssl-dev; \
-    update-ca-certificates; \
-    rm -rf /var/lib/apt/lists/*; \
     mkdir -p ${NGINX_SRC_DIR}/src ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib; \
     chmod -R 755 ${NGINX_SRC_DIR} ${NGINX_MODULES_DIR} ${OPENSSL_SRC_DIR} /usr/local/lib; \
     echo "/usr/local/lib" > /etc/ld.so.conf.d/global-libs.conf && ldconfig
@@ -359,16 +357,17 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 # 安装运行依赖，创建运行用户及目录
 RUN set -eux; \
     apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates apt-transport-https libzmq5 \
+    apt-get install -y --no-install-recommends ca-certificates libzmq5 \
         curl iproute2 procps lsof dnsutils net-tools less jq iputils-ping \
         vim wget htop tcpdump strace telnet gettext-base tini; \
-    update-ca-certificates; \
     rm -f /usr/lib/apt/sources.list.d/*; \
     rm -f /etc/apt/sources.list.d/*; \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm-backports main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
-    echo "deb https://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    printf '%s\n' \
+        'deb https://mirrors.cernet.edu.cn/debian bookworm main contrib non-free non-free-firmware' \
+        'deb https://mirrors.cernet.edu.cn/debian bookworm-updates main contrib non-free non-free-firmware' \
+        'deb https://mirrors.cernet.edu.cn/debian bookworm-backports main contrib non-free non-free-firmware' \
+        'deb https://mirrors.cernet.edu.cn/debian-security bookworm-security main contrib non-free non-free-firmware' \
+        > /etc/apt/sources.list; \
     rm -rf /var/lib/apt/lists/* ; \
     mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi /run/nginx /etc/nginx/conf.d /var/log/nginx /docker-entrypoint.d; \
     groupadd -r nginx && useradd -r -g nginx -s /sbin/nologin -d /var/lib/nginx nginx; \
