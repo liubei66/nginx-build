@@ -16,7 +16,7 @@ ARG CACHE_PURGE=3.0.4
 
 ARG LUAJIT_INC=/usr/local/include/luajit-2.1
 ARG LUAJIT_LIB=/usr/local/share/lua/5.1
-ARG OPENSSL_VERSION=4.0.2
+ARG OPENSSL_VERSION=4.0.3
 ARG OPENSSL_SRC_DIR=/usr/src/openssl
 ARG NGX_TLS_DYN_SIZE=nginx__dynamic_tls_records_1.29.2+.patch
 
