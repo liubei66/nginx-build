@@ -206,7 +206,7 @@ RUN set -eux; \
 # 下载并应用upstream_check模块补丁
 RUN set -eux; \
     cd ${NGINX_SRC_DIR}/src; \
-    wget -O upstream_check.patch https://raw.githubusercontent.com/yaoweibin/nginx_upstream_check_module/master/check_1.20.1+.patch; \
+    wget -O upstream_check.patch https://raw.githubusercontent.com/yaoweibin/nginx_upstream_check_module/master/check_1.30.4+.patch; \
     patch -p1 < upstream_check.patch || echo "upstream_check补丁适配警告"; \
     rm -f upstream_check.patch
 
