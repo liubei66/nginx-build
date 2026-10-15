@@ -12,6 +12,7 @@ ARG JEMALLOC_VERSION=5.3.0
 ARG ZSTD_VERSION=1.5.7
 ARG LUAJIT_VERSION=2.1-20250826
 ARG VTS_VERSION=0.2.7
+ARG CACHE_PURGE=3.0.4
 
 ARG LUAJIT_INC=/usr/local/include/luajit-2.1
 ARG LUAJIT_LIB=/usr/local/share/lua/5.1
@@ -189,6 +190,12 @@ RUN set -eux; \
     mkdir -p ${NGINX_MODULES_DIR}/nginx-module-vts && tar -zxf ${NGINX_MODULES_DIR}/nginx-module-vts-${VTS_VERSION}.tar.gz -C ${NGINX_MODULES_DIR}/nginx-module-vts --strip-components=1; \
     rm -f ${NGINX_MODULES_DIR}/nginx-module-vts-${VTS_VERSION}.tar.gz
 
+# 下载并解压ngx_cache_purge源码包
+RUN set -eux; \
+    wget -O ${NGINX_MODULES_DIR}/ngx_cache_purge-${CACHE_PURGE}.tar.gz https://github.com/nginx-modules/ngx_cache_purge/archive/refs/tags/${CACHE_PURGE}.tar.gz; \
+    mkdir -p ${NGINX_MODULES_DIR}/ngx_cache_purge && tar -zxf ${NGINX_MODULES_DIR}/ngx_cache_purge-${CACHE_PURGE}.tar.gz -C ${NGINX_MODULES_DIR}/ngx_cache_purge --strip-components=1; \
+    rm -f ${NGINX_MODULES_DIR}/ngx_cache_purge-${CACHE_PURGE}.tar.gz
+
 # 下载并应用TLS动态记录补丁
 RUN set -eux; \
     wget -O ${NGINX_SRC_DIR}/dynamic_tls_records.patch https://raw.githubusercontent.com/nginx-modules/ngx_http_tls_dyn_size/master/${NGX_TLS_DYN_SIZE}; \
@@ -211,7 +218,6 @@ RUN set -eux; \
     git_clone https://github.com/vision5/ngx_devel_kit.git ${NGINX_MODULES_DIR}/ngx_devel_kit master; \
     git_clone https://github.com/Lax/traffic-accounting-nginx-module.git ${NGINX_MODULES_DIR}/traffic-accounting master; \
     git_clone https://github.com/openresty/array-var-nginx-module.git ${NGINX_MODULES_DIR}/array-var master; \
-    git_clone https://github.com/nginx-modules/ngx_cache_purge.git ${NGINX_MODULES_DIR}/ngx_cache_purge master; \
     git_clone https://github.com/google/ngx_brotli.git ${NGINX_MODULES_DIR}/ngx_brotli master; \
     git_clone https://github.com/AirisX/nginx_cookie_flag_module.git ${NGINX_MODULES_DIR}/nginx_cookie_flag master; \
     git_clone https://github.com/arut/nginx-dav-ext-module.git ${NGINX_MODULES_DIR}/nginx-dav-ext master; \
