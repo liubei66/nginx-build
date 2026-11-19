@@ -384,7 +384,6 @@ RUN set -eux; \
     ln -sf /dev/stdout /var/log/nginx/access.log && \
     ln -sf /dev/stderr /var/log/nginx/error.log
 
-
 # 暴露服务端口
 EXPOSE 80 443 443/udp
 
